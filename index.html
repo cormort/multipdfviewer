@@ -438,9 +438,8 @@
       background-color: rgba(100, 0, 100, 0.7);
     }
 
-    /* --- MODIFIED: Bottom bar is now hidden by default --- */
     #bottom-results-bar {
-      display: none; /* Hidden on desktop */
+      display: none;
       position: fixed;
       bottom: 0;
       left: 0;
@@ -486,13 +485,12 @@
         }
     }
 
-    /* --- MODIFIED: On mobile/tablet, show the bottom bar and hide the side panel --- */
     @media (max-width: 1024px) {
       #search-results-panel {
         display: none !important;
       }
       body.results-bar-visible #bottom-results-bar {
-        display: flex; /* Show bottom bar only on smaller screens when results are available */
+        display: flex;
       }
     }
 
@@ -746,6 +744,7 @@
         <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
         <button id="fit-width-btn" title="Fit to Page Width">Fit Width</button>
         <button id="zoom-in-btn" title="Zoom In">+</button>
+        <!-- MODIFIED: Removed title attribute -->
         <span id="zoom-level-display">100%</span>
       </div>
 
@@ -783,7 +782,6 @@
         </div>
         <div id="search-results-panel">
             <h3>Bookmarks / Search Results</h3>
-            <!-- NEW: Dropdown moved here -->
             <div id="panel-dropdown-container">
                 <select id="panelResultsDropdown">
                     <option value="">Search Results</option>
@@ -814,7 +812,6 @@
     </div>
   </div>
 
-<!-- This is now for mobile/tablet view only -->
 <div id="bottom-results-bar">
   <div id="result-nav-wrapper">
     <select id="resultsDropdown">
