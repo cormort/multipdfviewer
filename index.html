@@ -42,7 +42,7 @@
       position: relative; 
     }
 
-    /* --- NEW: Main content area for split view --- */
+    /* --- Main content area for split view --- */
     #main-content {
       display: flex;
       flex: 1; /* Take remaining height */
@@ -60,7 +60,7 @@
       padding-bottom: 60px;
     }
     
-    /* --- NEW: Search results side panel --- */
+    /* --- Search results side panel --- */
     #search-results-panel {
       display: none; /* Hidden by default */
       width: 320px;
@@ -92,7 +92,7 @@
       padding: 10px;
     }
 
-    /* --- NEW: Styles for individual result items in the side panel --- */
+    /* --- Styles for individual result items in the side panel --- */
     .result-item {
       margin-bottom: 15px;
       padding: 10px;
@@ -217,6 +217,33 @@
     }
     #toolbar button:hover {
       background-color: initial;
+    }
+
+    /* --- NEW: Styles for Zoom Controls --- */
+    #zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border-left: 1px solid #ccc;
+      padding-left: 10px;
+      margin-left: 10px;
+    }
+    #zoom-controls button {
+      min-width: 38px;
+      font-weight: bold;
+    }
+    #zoom-level-display {
+      font-size: 0.9em;
+      font-weight: bold;
+      color: #333;
+      padding: 0 8px;
+      min-width: 50px;
+      text-align: center;
+    }
+    #zoom-controls button.active {
+      background-color: #007bff;
+      color: white;
+      border-color: #007bff;
     }
 
     #quality-control,
@@ -529,6 +556,16 @@
         flex-grow: 1;
       }
 
+      /* --- NEW: Mobile styles for zoom controls --- */
+      #zoom-controls {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-left: 0;
+        padding-left: 0;
+        border-left: none;
+      }
+
       #page-navigation {
         margin-left: 0;
         flex-direction: column;
@@ -695,6 +732,16 @@
             <option value="2.0">Highest</option>
         </select>
       </div>
+      
+      <!-- NEW: Zoom Controls -->
+      <div id="zoom-controls">
+        <button id="zoom-out-btn" title="Zoom Out">-</button>
+        <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
+        <button id="fit-width-btn" title="Fit to Page Width">Fit Width</button>
+        <button id="zoom-in-btn" title="Zoom In">+</button>
+        <span id="zoom-level-display">100%</span>
+      </div>
+
       <div id="local-magnifier-zoom-controls" style="display: none; align-items: center; gap: 5px;">
         <label for="local-magnifier-zoom-selector" style="white-space: nowrap; font-size: 0.9em;">Magnifier Zoom:</label>
         <select id="local-magnifier-zoom-selector" style="padding: 6px;">
@@ -718,7 +765,7 @@
       </div>
     </div>
 
-    <!-- NEW: Main content wrapper for split view -->
+    <!-- Main content wrapper for split view -->
     <div id="main-content">
         <div id="pdf-container">
           <canvas id="pdf-canvas"></canvas>
@@ -728,9 +775,10 @@
             <canvas id="magnifier-canvas"></canvas>
           </div>
         </div>
-        <!-- NEW: Search results side panel -->
+        <!-- Search results side panel -->
         <div id="search-results-panel">
-            <h3>Search Results</h3>
+            <!-- MODIFIED: Title changed to reflect bookmark concept -->
+            <h3>Bookmarks / Search Results</h3>
             <div id="results-list">
                 <!-- Search results with thumbnails will be dynamically inserted here -->
             </div>
@@ -743,7 +791,6 @@
         <span class="toggle-underline-icon">S</span>
     </button>
     <div class="fab-button-group">
-        <!-- NEW: Copy Page Text Button -->
         <button id="copy-page-text-btn" title="Copy Page Text">📝</button>
         <button id="toggle-text-selection-btn" title="Enable Text Selection">TS</button>
     </div>
