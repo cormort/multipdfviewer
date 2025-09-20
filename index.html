@@ -220,7 +220,6 @@
       background-color: initial;
     }
 
-    /* --- Styles for Zoom Controls (both desktop and mobile) --- */
     .zoom-controls {
       display: flex;
       align-items: center;
@@ -231,26 +230,16 @@
       min-width: 38px;
       font-weight: bold;
     }
-    .zoom-level-display {
-      font-size: 0.9em;
-      font-weight: bold;
-      color: #333;
-      padding: 0 8px;
-      min-width: 50px;
-      text-align: center;
-    }
     .zoom-controls button.active {
       background-color: #007bff;
       color: white;
       border-color: #007bff;
     }
-    /* Desktop specific zoom styles */
     #desktop-zoom-controls {
       border-left: 1px solid #ccc;
       padding-left: 10px;
       margin-left: 10px;
     }
-    /* Mobile specific zoom styles */
     #mobile-zoom-controls {
         width: 100%;
         justify-content: center;
@@ -491,7 +480,7 @@
 
     /* --- Responsive Logic --- */
     #mobile-zoom-controls {
-        display: none; /* Hide mobile zoom by default */
+        display: none;
     }
 
     @media (max-width: 1380px) {
@@ -523,10 +512,10 @@
 
     @media (max-width: 768px) {
       #desktop-zoom-controls {
-        display: none; /* Hide desktop zoom on mobile */
+        display: none;
       }
       #mobile-zoom-controls {
-        display: flex; /* Show mobile zoom in the menu */
+        display: flex;
       }
 
       #toolbar-toggle-tab {
@@ -770,7 +759,7 @@
         <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
         <button id="fit-width-btn" title="Fit to Page Width">Fit Width</button>
         <button id="zoom-in-btn" title="Zoom In">+</button>
-        <span id="zoom-level-display" class="zoom-level-display">100%</span>
+        <!-- MODIFIED: Removed the span for zoom level display -->
       </div>
 
       <div id="local-magnifier-zoom-controls" style="display: none; align-items: center; gap: 5px;">
@@ -790,7 +779,7 @@
         <button id="mobile-fit-height-btn" title="Fit to Page Height">Fit Height</button>
         <button id="mobile-fit-width-btn" title="Fit to Page Width">Fit Width</button>
         <button id="mobile-zoom-in-btn" title="Zoom In">+</button>
-        <span id="mobile-zoom-level-display" class="zoom-level-display">100%</span>
+        <!-- MODIFIED: Removed the span for zoom level display -->
       </div>
 
       <div id="page-navigation">
