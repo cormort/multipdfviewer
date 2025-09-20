@@ -19,11 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let pageRendering = false;
     let searchResults = []; // To store search results for navigation
 
+    // --- NEW: State variables for zoom ---
+    let currentZoomMode = 'height'; // 'width', 'height', or 'custom'
+    let currentScale = 1.0; // Stores the actual scale value
+
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas ? canvas.getContext('2d') : null;
     const toolbar = document.getElementById('toolbar');
-    const toolbarToggleTab = document.getElementById('toolbar-toggle-tab'); // New tab button
-    const appContainer = document.getElementById('app-container'); // Get the app container
+    const toolbarToggleTab = document.getElementById('toolbar-toggle-tab');
+    const appContainer = document.getElementById('app-container');
     const pdfContainer = document.getElementById('pdf-container');
     const textLayerDivGlobal = document.getElementById('text-layer');
     const goToFirstPageBtn = document.getElementById('go-to-first-page');
@@ -53,10 +57,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const localMagnifierZoomControlsDiv = document.getElementById('local-magnifier-zoom-controls');
     const localMagnifierZoomSelector = document.getElementById('local-magnifier-zoom-selector');
 
-    // --- NEW: Element selectors for split view and new features ---
     const searchResultsPanel = document.getElementById('search-results-panel');
     const resultsList = document.getElementById('results-list');
     const copyPageTextBtn = document.getElementById('copy-page-text-btn');
+
+    // --- NEW: Element selectors for zoom controls ---
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const fitWidthBtn = document.getElementById('fit-width-btn');
+    const fitHeightBtn = document.getElementById('fit-height-btn');
+    const zoomLevelDisplay = document.getElementById('zoom-level-display');
 
 
     let localMagnifierEnabled = false;
@@ -70,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastX = 0;
     let lastY = 0;
 
-    // --- [MODIFIED] Refactored file loading and processing logic ---
     async function loadAndProcessFiles(files) {
         if (!files || files.length === 0) {
             return;
@@ -81,17 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Reset application state
         pdfDocs = [];
         pageMap = [];
         globalTotalPages = 0;
         currentPage = 1;
         searchResults = [];
+        currentZoomMode = 'height'; // Reset to default on new file load
 
-        // Clear both desktop and mobile result views
         if (resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
         if (resultsList) resultsList.innerHTML = '';
-        updateResultsNav(); // This will hide the side panel
+        updateResultsNav();
 
         if (searchInputElem) searchInputElem.value = '';
         showSearchResultsHighlights = true;
@@ -160,14 +168,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- [MODIFIED] File input listener now saves files and then processes them ---
     document.getElementById('fileInput').addEventListener('change', async function(e) {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
             try {
-                await saveFiles(files); // Save files to IndexedDB
-                document.getElementById('restore-session-container').style.display = 'none'; // Hide restore button after new selection
-                await loadAndProcessFiles(files); // Process them
+                await saveFiles(files);
+                document.getElementById('restore-session-container').style.display = 'none';
+                await loadAndProcessFiles(files);
             } catch (error) {
                 console.error("Failed to save or process files:", error);
                 alert("An error occurred while saving or processing the files.");
@@ -177,16 +184,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getDocAndLocalPage(globalPage) {
         if (globalPage < 1 || globalPage > globalTotalPages || pageMap.length === 0) {
-            console.error(`Invalid globalPage ${globalPage}, globalTotalPages ${globalTotalPages}, pageMap.length ${pageMap.length}`);
             return null;
         }
         const mapping = pageMap[globalPage - 1];
-        if (!mapping) {
-             console.error(`Mapping is null/undefined for global page ${globalPage}. pageMap entry:`, pageMap[globalPage - 1]);
-             return null;
-        }
-        if (pdfDocs[mapping.docIndex] === undefined) {
-             console.error(`pdfDocs[${mapping.docIndex}] is undefined for global page ${globalPage}. Mapping:`, mapping, 'pdfDocs:', pdfDocs);
+        if (!mapping || pdfDocs[mapping.docIndex] === undefined) {
              return null;
         }
         return {
@@ -278,88 +279,70 @@ document.addEventListener('DOMContentLoaded', () => {
         magnifierGlass.style.left = `${magnifierLeft + pdfContainer.scrollLeft}px`;
     }
 
+    // --- NEW: Function to update the zoom controls UI ---
+    function updateZoomControls() {
+        if (!zoomLevelDisplay || !fitWidthBtn || !fitHeightBtn) return;
+        
+        zoomLevelDisplay.textContent = `${Math.round(currentScale * 100)}%`;
+
+        fitWidthBtn.classList.remove('active');
+        fitHeightBtn.classList.remove('active');
+
+        if (currentZoomMode === 'width') {
+            fitWidthBtn.classList.add('active');
+        } else if (currentZoomMode === 'height') {
+            fitHeightBtn.classList.add('active');
+        }
+    }
+
     function updatePageControls() {
         const fabContainer = document.getElementById('floating-action-buttons');
-        if (!pageNumDisplay || !goToFirstPageBtn || !prevPageBtn || !nextPageBtn || !pageToGoInput || !goToPageBtn || !pageSlider || !fabContainer || !toggleUnderlineBtn || !toggleHighlighterBtn || !clearHighlighterBtn || !toggleTextSelectionBtn || !sharePageBtn || !exportPageBtn || !toggleLocalMagnifierBtn || !localMagnifierZoomControlsDiv || !localMagnifierZoomSelector || !copyPageTextBtn) {
-            if (pdfDocs.length === 0 && pageNumDisplay) pageNumDisplay.textContent = '- / -';
-            if (pdfDocs.length === 0 && fabContainer) fabContainer.style.display = 'none';
+        const hasDocs = pdfDocs.length > 0;
+
+        // Simplified check
+        if (!pageNumDisplay || !fabContainer) {
+            if (!hasDocs && pageNumDisplay) pageNumDisplay.textContent = '- / -';
+            if (!hasDocs && fabContainer) fabContainer.style.display = 'none';
             return;
         }
 
-        const hasDocs = pdfDocs.length > 0;
+        const allControls = [goToFirstPageBtn, prevPageBtn, nextPageBtn, pageToGoInput, goToPageBtn, pageSlider, toggleUnderlineBtn, toggleHighlighterBtn, clearHighlighterBtn, toggleTextSelectionBtn, sharePageBtn, exportPageBtn, toggleLocalMagnifierBtn, localMagnifierZoomSelector, copyPageTextBtn, zoomInBtn, zoomOutBtn, fitWidthBtn, fitHeightBtn];
+        
+        allControls.forEach(el => { if(el) el.disabled = !hasDocs; });
 
         if (!hasDocs) {
-            if (pageNumDisplay) pageNumDisplay.textContent = '- / -';
-            if (goToFirstPageBtn) goToFirstPageBtn.disabled = true;
-            if (prevPageBtn) prevPageBtn.disabled = true;
-            if (nextPageBtn) nextPageBtn.disabled = true;
-            if (pageToGoInput) {
-                pageToGoInput.disabled = true;
-                pageToGoInput.value = '';
-                pageToGoInput.max = 1;
-            }
-            if (goToPageBtn) goToPageBtn.disabled = true;
-            if (pageSlider) {
-                pageSlider.disabled = true;
-                pageSlider.max = 1;
-                pageSlider.value = 1;
-            }
-            if (fabContainer) fabContainer.style.display = 'none';
-            if (toggleLocalMagnifierBtn) toggleLocalMagnifierBtn.disabled = true;
+            pageNumDisplay.textContent = '- / -';
+            if (pageToGoInput) { pageToGoInput.value = ''; pageToGoInput.max = 1; }
+            if (pageSlider) { pageSlider.max = 1; pageSlider.value = 1; }
+            fabContainer.style.display = 'none';
             if (localMagnifierZoomControlsDiv) localMagnifierZoomControlsDiv.style.display = 'none';
-            if (localMagnifierZoomSelector) localMagnifierZoomSelector.disabled = true;
-            if (copyPageTextBtn) copyPageTextBtn.disabled = true;
-
             updateResultsNav();
             return;
         }
 
         const docInfo = getDocAndLocalPage(currentPage);
         const docNameDisplay = docInfo ? ` (File: ${docInfo.docName})` : '';
-        if (pageNumDisplay) pageNumDisplay.textContent = `Page ${currentPage} / ${globalTotalPages}${docNameDisplay}`;
-        if (pageToGoInput) {
-            pageToGoInput.value = currentPage;
-            pageToGoInput.max = globalTotalPages;
-            pageToGoInput.disabled = false;
-        }
+        pageNumDisplay.textContent = `Page ${currentPage} / ${globalTotalPages}${docNameDisplay}`;
+        if (pageToGoInput) { pageToGoInput.value = currentPage; pageToGoInput.max = globalTotalPages; }
         if (goToFirstPageBtn) goToFirstPageBtn.disabled = (currentPage === 1);
         if (prevPageBtn) prevPageBtn.disabled = (currentPage === 1);
         if (nextPageBtn) nextPageBtn.disabled = (currentPage === globalTotalPages);
-        if (goToPageBtn) goToPageBtn.disabled = false;
+        if (pageSlider) { pageSlider.max = globalTotalPages; pageSlider.value = currentPage; pageSlider.disabled = (globalTotalPages === 1); }
 
-        if (pageSlider) {
-            pageSlider.max = globalTotalPages;
-            pageSlider.value = currentPage;
-            pageSlider.disabled = (globalTotalPages === 1);
-        }
+        fabContainer.style.display = 'flex';
 
-        if (fabContainer) fabContainer.style.display = 'flex';
-
-        if (toggleUnderlineBtn) toggleUnderlineBtn.disabled = false;
         showSearchResultsHighlights ? toggleUnderlineBtn.classList.add('active') : toggleUnderlineBtn.classList.remove('active');
-
-        toggleHighlighterBtn.disabled = false;
-        clearHighlighterBtn.disabled = false;
         highlighterEnabled ? toggleHighlighterBtn.classList.add('active') : toggleHighlighterBtn.classList.remove('active');
         toggleHighlighterBtn.title = highlighterEnabled ? 'Disable Highlighter' : 'Enable Highlighter';
-
-        toggleTextSelectionBtn.disabled = !hasDocs;
         textSelectionModeActive ? toggleTextSelectionBtn.classList.add('active') : toggleTextSelectionBtn.classList.remove('active');
         toggleTextSelectionBtn.title = textSelectionModeActive ? 'Disable Text Selection' : 'Enable Text Selection';
-
-        copyPageTextBtn.disabled = !hasDocs; // NEW: Enable/disable copy button
-
         if (sharePageBtn) sharePageBtn.disabled = !navigator.share;
-
-        if (toggleLocalMagnifierBtn) {
-            toggleLocalMagnifierBtn.disabled = !hasDocs;
-            localMagnifierEnabled ? toggleLocalMagnifierBtn.classList.add('active') : toggleLocalMagnifierBtn.classList.remove('active');
-            toggleLocalMagnifierBtn.title = localMagnifierEnabled ? 'Disable Magnifier' : 'Enable Magnifier';
-        }
+        localMagnifierEnabled ? toggleLocalMagnifierBtn.classList.add('active') : toggleLocalMagnifierBtn.classList.remove('active');
+        toggleLocalMagnifierBtn.title = localMagnifierEnabled ? 'Disable Magnifier' : 'Enable Magnifier';
         if (localMagnifierZoomControlsDiv) localMagnifierZoomControlsDiv.style.display = (hasDocs && localMagnifierEnabled) ? 'flex' : 'none';
-        if (localMagnifierZoomSelector) localMagnifierZoomSelector.disabled = !hasDocs;
 
         updateResultsNav();
+        updateZoomControls(); // Update zoom UI
     }
 
     if (toolbarToggleTab && appContainer) {
@@ -377,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- MODIFIED: renderPage now uses the new zoom logic ---
     function renderPage(globalPageNum, highlightPattern = null) {
         if (pdfDocs.length === 0 || !pdfContainer || !canvas || !ctx || !textLayerDivGlobal || !drawingCanvas || !drawingCtx) {
             return;
@@ -396,61 +380,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
         doc.getPage(localPage).then(function(page) {
             const viewportOriginal = page.getViewport({ scale: 1 });
-            let availableWidth = pdfContainer.clientWidth;
+            let scaleForCss;
 
-            if (availableWidth <= 0) {
-                availableWidth = window.innerWidth > 20 ? window.innerWidth - 20 : 300;
+            // Calculate scale based on the current zoom mode
+            if (currentZoomMode === 'width') {
+                scaleForCss = pdfContainer.clientWidth / viewportOriginal.width;
+            } else if (currentZoomMode === 'height') {
+                // Subtract padding from available height
+                const availableHeight = pdfContainer.clientHeight - 20; 
+                scaleForCss = availableHeight / viewportOriginal.height;
+            } else { // 'custom'
+                scaleForCss = currentScale;
             }
-
-            let baseScale = availableWidth / viewportOriginal.width;
+            currentScale = scaleForCss; // Update global scale for display
 
             if (canvas.dataset.originalBorder && pdfDocs.length > 0) canvas.style.border = canvas.dataset.originalBorder;
             else if (pdfDocs.length > 0) canvas.style.border = '1px solid #000';
 
             showSearchResultsHighlights ? textLayerDivGlobal.classList.remove('highlights-hidden') : textLayerDivGlobal.classList.add('highlights-hidden');
 
-            const viewportCss = page.getViewport({ scale: baseScale });
+            const viewportCss = page.getViewport({ scale: scaleForCss });
             const devicePixelRatio = window.devicePixelRatio || 1;
-            const qualityMultiplierVal = qualitySelector ? parseFloat(qualitySelector.value) : 1.5;
-            const qualityMultiplier = qualityMultiplierVal || 1.5;
+            const qualityMultiplier = parseFloat(qualitySelector.value) || 1.5;
 
-            const renderScale = baseScale * devicePixelRatio * qualityMultiplier;
+            const renderScale = scaleForCss * devicePixelRatio * qualityMultiplier;
             const viewportRender = page.getViewport({ scale: renderScale });
 
             canvas.width = viewportRender.width; canvas.height = viewportRender.height;
-            canvas.style.width = viewportCss.width + 'px'; canvas.style.height = viewportCss.height + 'px';
+            canvas.style.width = `${viewportCss.width}px`; canvas.style.height = `${viewportCss.height}px`;
 
             const renderContext = { canvasContext: ctx, viewport: viewportRender };
 
-            if (ctx && viewportRender) {
-                page.render(renderContext).promise.then(() => {
-                    pageRendering = false;
-                    updatePageControls();
+            page.render(renderContext).promise.then(() => {
+                pageRendering = false;
+                updatePageControls(); // This will also call updateZoomControls
 
-                    textLayerDivGlobal.style.width = viewportCss.width + 'px';
-                    textLayerDivGlobal.style.height = viewportCss.height + 'px';
-                    textLayerDivGlobal.style.top = canvas.offsetTop + 'px';
-                    textLayerDivGlobal.style.left = canvas.offsetLeft + 'px';
+                textLayerDivGlobal.style.width = `${viewportCss.width}px`;
+                textLayerDivGlobal.style.height = `${viewportCss.height}px`;
+                textLayerDivGlobal.style.top = `${canvas.offsetTop}px`;
+                textLayerDivGlobal.style.left = `${canvas.offsetLeft}px`;
 
-                    drawingCanvas.width = viewportCss.width;
-                    drawingCanvas.height = viewportCss.height;
-                    drawingCanvas.style.top = canvas.offsetTop + 'px';
-                    drawingCanvas.style.left = canvas.offsetLeft + 'px';
+                drawingCanvas.width = viewportCss.width;
+                drawingCanvas.height = viewportCss.height;
+                drawingCanvas.style.top = `${canvas.offsetTop}px`;
+                drawingCanvas.style.left = `${canvas.offsetLeft}px`;
 
-                    drawingCtx.strokeStyle = 'rgba(255, 255, 0, 0.5)'; // Made highlighter more visible
-                    drawingCtx.lineWidth = 15;
-                    drawingCtx.lineJoin = 'round'; drawingCtx.lineCap = 'round';
+                drawingCtx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
+                drawingCtx.lineWidth = 15;
+                drawingCtx.lineJoin = 'round'; drawingCtx.lineCap = 'round';
 
-                    return renderTextLayer(page, viewportCss, highlightPattern);
-                }).catch(reason => {
-                    console.error(`Error rendering page ${localPage} from doc ${pageInfo.docName}: ` + reason);
-                    pageRendering = false;
-                    updatePageControls();
-                });
-            } else {
+                return renderTextLayer(page, viewportCss, highlightPattern);
+            }).catch(reason => {
+                console.error(`Error rendering page ${localPage} from doc ${pageInfo.docName}: ` + reason);
                 pageRendering = false;
                 updatePageControls();
-            }
+            });
         }).catch(reason => {
             console.error(`Error getting page ${localPage} from doc ${pageInfo.docName}: ` + reason);
             pageRendering = false;
@@ -528,7 +512,6 @@ document.addEventListener('DOMContentLoaded', () => {
         drawingCanvas.addEventListener('touchcancel', stopDrawing);
     }
 
-    // --- NEW: Function to render a page thumbnail for the results panel ---
     async function renderThumbnail(docIndex, localPageNum, canvasEl) {
         try {
             const doc = pdfDocs[docIndex];
@@ -536,7 +519,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const page = await doc.getPage(localPageNum);
             
             const viewport = page.getViewport({ scale: 1 });
-            // Use parent width (of the result-item) to calculate scale
             const scale = (canvasEl.parentElement.clientWidth - 20) / viewport.width;
             const scaledViewport = page.getViewport({ scale: scale });
             
@@ -554,10 +536,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- MODIFIED: The main search function to populate both side panel and bottom dropdown ---
     function searchKeyword() {
         const input = searchInputElem.value.trim();
-        // Clear previous results
         searchResults = [];
         if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Searching...</option>';
         if(resultsList) resultsList.innerHTML = 'Searching, please wait...';
@@ -602,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfDocs.forEach((doc, docIndex) => {
             for (let i = 1; i <= doc.numPages; i++) {
                 const currentGlobalPageForSearch = globalPageOffset + i;
-                const pageInfo = pageMap[currentGlobalPageForSearch - 1]; // Get mapping info
+                const pageInfo = pageMap[currentGlobalPageForSearch - 1];
                 
                 promises.push(
                     doc.getPage(i).then(p => {
@@ -632,7 +612,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                         postMatch +
                                         (endIndex < pageText.length ? ' ...' : '');
                                 }
-                                // Return full info for thumbnail rendering
                                 return {
                                     page: currentGlobalPageForSearch,
                                     summary: foundMatchSummary,
@@ -655,7 +634,6 @@ document.addEventListener('DOMContentLoaded', () => {
         Promise.all(promises).then((allPageResults) => {
             searchResults = allPageResults.filter(r => r !== null).sort((a, b) => a.page - b.page);
 
-            // Clear result containers
             if(resultsDropdown) resultsDropdown.innerHTML = '';
             if(resultsList) resultsList.innerHTML = '';
 
@@ -664,15 +642,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(resultsList) resultsList.innerHTML = '<p style="padding: 10px;">Keyword not found.</p>';
                 renderPage(currentPage, null);
             } else {
-                // Populate both mobile dropdown and desktop panel
                 searchResults.forEach(result => {
-                    // Populate mobile dropdown
                     const option = document.createElement('option');
                     option.value = result.page;
                     option.innerHTML = `Page ${result.page}: ${result.summary}`;
                     if(resultsDropdown) resultsDropdown.appendChild(option);
 
-                    // Populate desktop side panel
                     const resultItem = document.createElement('div');
                     resultItem.className = 'result-item';
                     resultItem.innerHTML = `
@@ -685,7 +660,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if(resultsList) resultsList.appendChild(resultItem);
                     
-                    // Render the thumbnail
                     const thumbnailCanvas = resultItem.querySelector('.thumbnail-canvas');
                     renderThumbnail(result.docIndex, result.localPage, thumbnailCanvas);
                 });
@@ -709,12 +683,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODIFIED: Function to toggle visibility of results displays ---
     function updateResultsNav() {
         const hasResults = searchResults.length > 0;
-        // For mobile bottom bar
         document.body.classList.toggle('results-bar-visible', hasResults);
-        // For desktop side panel
         if (appContainer) {
             appContainer.classList.toggle('results-panel-visible', hasResults);
         }
@@ -912,7 +883,6 @@ document.addEventListener('DOMContentLoaded', () => {
         drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     });
     
-    // --- NEW: Event listener for the "Copy Page Text" button ---
     if (copyPageTextBtn) {
         copyPageTextBtn.addEventListener('click', async () => {
             if (pdfDocs.length === 0 || pageRendering) return;
@@ -925,14 +895,12 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const page = await pageInfo.doc.getPage(pageInfo.localPage);
                 const textContent = await page.getTextContent();
-                // Join text items with a newline for better readability
                 const pageText = textContent.items.map(item => item.str).join('\n');
                 
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(pageText);
                     showFeedback('Page text copied to clipboard!');
                 } else {
-                    // Fallback for older browsers
                     const textArea = document.createElement("textarea");
                     textArea.value = pageText;
                     document.body.appendChild(textArea);
@@ -1067,10 +1035,40 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             if (pdfDocs.length > 0) {
+                // Re-render with the current mode, which will auto-adjust
                 renderPage(currentPage, getPatternFromSearchInput());
             }
         }, 250);
     });
+
+    // --- NEW: Event Listeners for Zoom Controls ---
+    if (fitWidthBtn) {
+        fitWidthBtn.addEventListener('click', () => {
+            currentZoomMode = 'width';
+            renderPage(currentPage, getPatternFromSearchInput());
+        });
+    }
+    if (fitHeightBtn) {
+        fitHeightBtn.addEventListener('click', () => {
+            currentZoomMode = 'height';
+            renderPage(currentPage, getPatternFromSearchInput());
+        });
+    }
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => {
+            currentZoomMode = 'custom';
+            currentScale += 0.2; // Zoom in by 20%
+            renderPage(currentPage, getPatternFromSearchInput());
+        });
+    }
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => {
+            currentZoomMode = 'custom';
+            currentScale = Math.max(0.1, currentScale - 0.2); // Zoom out, with a minimum of 10%
+            renderPage(currentPage, getPatternFromSearchInput());
+        });
+    }
+
 
     function navigateToNextResult() {
         if (searchResults.length === 0 || !resultsDropdown) return;
@@ -1085,7 +1083,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextPage = nextResult.page;
             goToPage(nextPage, getPatternFromSearchInput());
         } else {
-            console.log('Already at the last search result.');
             showFeedback('Already at the last result');
         }
     }
@@ -1103,7 +1100,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const prevPage = prevResult.page;
             goToPage(prevPage, getPatternFromSearchInput());
         } else {
-            console.log('Already at the first search result.');
             showFeedback('Already at the first result');
         }
     }
@@ -1114,18 +1110,12 @@ document.addEventListener('DOMContentLoaded', () => {
             feedbackDiv = document.createElement('div');
             feedbackDiv.id = 'feedback-message';
             document.body.appendChild(feedbackDiv);
-            feedbackDiv.style.position = 'fixed';
-            feedbackDiv.style.bottom = '80px';
-            feedbackDiv.style.left = '50%';
-            feedbackDiv.style.transform = 'translateX(-50%)';
-            feedbackDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            feedbackDiv.style.color = 'white';
-            feedbackDiv.style.padding = '10px 20px';
-            feedbackDiv.style.borderRadius = '20px';
-            feedbackDiv.style.zIndex = '9999';
-            feedbackDiv.style.opacity = '0';
-            feedbackDiv.style.transition = 'opacity 0.5s';
-            feedbackDiv.style.pointerEvents = 'none';
+            Object.assign(feedbackDiv.style, {
+                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '10px 20px',
+                borderRadius: '20px', zIndex: '9999', opacity: '0',
+                transition: 'opacity 0.5s', pointerEvents: 'none'
+            });
         }
         feedbackDiv.textContent = message;
         feedbackDiv.style.opacity = '1';
@@ -1141,33 +1131,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pdfContainer) {
         pdfContainer.addEventListener('touchstart', (e) => {
             if (highlighterEnabled || textSelectionModeActive || localMagnifierEnabled || e.touches.length !== 1) {
-                touchStartX = 0;
                 isSwiping = false;
                 return;
             }
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = true;
-        }, { passive: true }); // Use passive true for start to allow scrolling
+        }, { passive: true });
 
         pdfContainer.addEventListener('touchmove', (e) => {
             if (!isSwiping || e.touches.length !== 1) return;
             const currentX = e.touches[0].clientX;
-            const currentY = e.touches[0].clientY;
             const diffX = currentX - touchStartX;
-            const diffY = Math.abs(currentY - touchStartY);
-            
-            // Only prevent default if it's a clear horizontal swipe
-            if (Math.abs(diffX) > diffY && Math.abs(diffX) > 10) {
-                 // No e.preventDefault() here to avoid blocking scrolling unless we are sure it is a page turn gesture.
-            } else {
-                isSwiping = false; // It's more of a scroll
+            if (Math.abs(diffX) < 10) {
+                isSwiping = false;
             }
-        }, { passive: true }); // Passive true is generally safer for touchmove
+        }, { passive: true });
 
         pdfContainer.addEventListener('touchend', (e) => {
             if (!isSwiping || e.changedTouches.length !== 1) {
-                isSwiping = false; touchStartX = 0; touchStartY = 0; return;
+                isSwiping = false; return;
             }
             const touchEndX = e.changedTouches[0].clientX;
             const touchEndY = e.changedTouches[0].clientY;
@@ -1184,27 +1167,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     else { prevPageBtn.click(); }
                 }
             }
-            touchStartX = 0; touchStartY = 0; isSwiping = false;
+            isSwiping = false;
         });
 
-        pdfContainer.addEventListener('touchcancel', () => {
-            touchStartX = 0; touchStartY = 0; isSwiping = false;
-        });
-
-    } else {
-        console.error('PDF Container not found for swipe gesture attachment.');
+        pdfContainer.addEventListener('touchcancel', () => { isSwiping = false; });
     }
 
     initLocalMagnifier();
-    
-    if (window.innerWidth <= 768 && appContainer && !appContainer.classList.contains('menu-active')) {
-        // Optional: decide if menu should be open by default on mobile
-        // appContainer.classList.add('menu-active');
-    }
-    
     updatePageControls();
 
-    // --- [NEW] App initialization function to check for stored files ---
     async function initializeApp() {
         try {
             await initDB();
@@ -1219,17 +1190,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(restoreBtn) {
                     restoreBtn.onclick = async () => {
                         await loadAndProcessFiles(storedFiles);
-                        restoreContainer.style.display = 'none'; // Hide button after use
+                        restoreContainer.style.display = 'none';
                     };
                 }
             }
         } catch (error) {
             console.error("Could not initialize app from IndexedDB:", error);
-            // If IndexedDB is not supported or fails, the app will still function normally
-            // without the restore feature.
         }
     }
     
-    initializeApp(); // Run the initialization
+    initializeApp();
 
 });
