@@ -220,20 +220,18 @@
       background-color: initial;
     }
 
-    #zoom-controls {
+    /* --- Styles for Zoom Controls (both desktop and mobile) --- */
+    .zoom-controls {
       display: flex;
       align-items: center;
       gap: 5px;
-      border-left: 1px solid #ccc;
-      padding-left: 10px;
-      margin-left: 10px;
       flex-shrink: 0;
     }
-    #zoom-controls button {
+    .zoom-controls button {
       min-width: 38px;
       font-weight: bold;
     }
-    #zoom-level-display {
+    .zoom-level-display {
       font-size: 0.9em;
       font-weight: bold;
       color: #333;
@@ -241,11 +239,23 @@
       min-width: 50px;
       text-align: center;
     }
-    #zoom-controls button.active {
+    .zoom-controls button.active {
       background-color: #007bff;
       color: white;
       border-color: #007bff;
     }
+    /* Desktop specific zoom styles */
+    #desktop-zoom-controls {
+      border-left: 1px solid #ccc;
+      padding-left: 10px;
+      margin-left: 10px;
+    }
+    /* Mobile specific zoom styles */
+    #mobile-zoom-controls {
+        width: 100%;
+        justify-content: center;
+    }
+
 
     #local-magnifier-zoom-controls {
       display: flex;
@@ -480,6 +490,10 @@
     }
 
     /* --- Responsive Logic --- */
+    #mobile-zoom-controls {
+        display: none; /* Hide mobile zoom by default */
+    }
+
     @media (max-width: 1380px) {
         #go-to-first-page {
             display: none;
@@ -508,6 +522,13 @@
     }
 
     @media (max-width: 768px) {
+      #desktop-zoom-controls {
+        display: none; /* Hide desktop zoom on mobile */
+      }
+      #mobile-zoom-controls {
+        display: flex; /* Show mobile zoom in the menu */
+      }
+
       #toolbar-toggle-tab {
         display: flex;
         position: absolute;
@@ -585,15 +606,6 @@
       }
       #local-magnifier-zoom-controls select {
         flex-grow: 1;
-      }
-
-      #zoom-controls {
-        width: 100%;
-        flex-wrap: wrap;
-        justify-content: center;
-        margin-left: 0;
-        padding-left: 0;
-        border-left: none;
       }
 
       #page-navigation {
@@ -752,12 +764,13 @@
       <input type="text" id="searchInput" placeholder="Keyword or Regex" />
       <button id="search-action-button">Search</button>
       
-      <div id="zoom-controls">
+      <!-- Desktop Zoom Controls -->
+      <div id="desktop-zoom-controls" class="zoom-controls">
         <button id="zoom-out-btn" title="Zoom Out">-</button>
         <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
         <button id="fit-width-btn" title="Fit to Page Width">Fit Width</button>
         <button id="zoom-in-btn" title="Zoom In">+</button>
-        <span id="zoom-level-display">100%</span>
+        <span id="zoom-level-display" class="zoom-level-display">100%</span>
       </div>
 
       <div id="local-magnifier-zoom-controls" style="display: none; align-items: center; gap: 5px;">
@@ -770,6 +783,16 @@
             <option value="3.5">3.5x</option>
         </select>
       </div>
+
+      <!-- Mobile Zoom Controls (inside the slide-out menu) -->
+      <div id="mobile-zoom-controls" class="zoom-controls">
+        <button id="mobile-zoom-out-btn" title="Zoom Out">-</button>
+        <button id="mobile-fit-height-btn" title="Fit to Page Height">Fit Height</button>
+        <button id="mobile-fit-width-btn" title="Fit to Page Width">Fit Width</button>
+        <button id="mobile-zoom-in-btn" title="Zoom In">+</button>
+        <span id="mobile-zoom-level-display" class="zoom-level-display">100%</span>
+      </div>
+
       <div id="page-navigation">
         <button id="go-to-first-page">First Page</button>
         <button id="prev-page">Prev</button>
