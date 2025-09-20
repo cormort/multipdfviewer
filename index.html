@@ -219,7 +219,7 @@
       background-color: initial;
     }
 
-    /* --- NEW: Styles for Zoom Controls --- */
+    /* --- Styles for Zoom Controls --- */
     #zoom-controls {
       display: flex;
       align-items: center;
@@ -301,6 +301,31 @@
       z-index: 10;
       touch-action: none;
       pointer-events: none;
+    }
+
+    /* --- NEW: Styles for paragraph selection --- */
+    #pdf-container.paragraph-selection-mode {
+        cursor: pointer;
+    }
+    .paragraph-highlight {
+        position: absolute;
+        background-color: rgba(0, 123, 255, 0.25);
+        border: 1px solid rgba(0, 123, 255, 0.5);
+        border-radius: 3px;
+        z-index: 6;
+        pointer-events: none;
+    }
+    #copy-paragraph-btn {
+        position: absolute;
+        z-index: 7;
+        padding: 5px 10px;
+        font-size: 14px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
     #magnifier-glass {
@@ -409,6 +434,10 @@
     #toggle-text-selection-btn.active {
       background-color: rgba(0, 0, 100, 0.7);
     }
+    /* --- NEW: Active state for paragraph selection button --- */
+    #toggle-paragraph-selection-btn.active {
+      background-color: rgba(0, 123, 255, 0.7);
+    }
     #toggle-local-magnifier-btn.active {
       background-color: rgba(100, 0, 100, 0.7);
     }
@@ -456,23 +485,17 @@
       max-width: 100%;
     }
 
-    /* --- NEW/MODIFIED: Responsive Logic for side panel vs. bottom bar --- */
-    /* On desktop, prefer side panel. Hide bottom bar if side panel is visible. */
+    /* --- Responsive Logic --- */
     @media (min-width: 1025px) {
       #app-container.results-panel-visible #bottom-results-bar {
         display: none !important;
       }
     }
-
-    /* On tablets/mobile, prefer bottom bar. Always hide side panel. */
     @media (max-width: 1024px) {
       #search-results-panel {
         display: none !important;
       }
     }
-
-
-    /* Mobile Styles */
     @media (max-width: 768px) {
       #toolbar-toggle-tab {
         display: flex;
@@ -556,7 +579,6 @@
         flex-grow: 1;
       }
 
-      /* --- NEW: Mobile styles for zoom controls --- */
       #zoom-controls {
         width: 100%;
         flex-wrap: wrap;
@@ -733,7 +755,6 @@
         </select>
       </div>
       
-      <!-- NEW: Zoom Controls -->
       <div id="zoom-controls">
         <button id="zoom-out-btn" title="Zoom Out">-</button>
         <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
@@ -765,7 +786,6 @@
       </div>
     </div>
 
-    <!-- Main content wrapper for split view -->
     <div id="main-content">
         <div id="pdf-container">
           <canvas id="pdf-canvas"></canvas>
@@ -775,13 +795,9 @@
             <canvas id="magnifier-canvas"></canvas>
           </div>
         </div>
-        <!-- Search results side panel -->
         <div id="search-results-panel">
-            <!-- MODIFIED: Title changed to reflect bookmark concept -->
             <h3>Bookmarks / Search Results</h3>
-            <div id="results-list">
-                <!-- Search results with thumbnails will be dynamically inserted here -->
-            </div>
+            <div id="results-list"></div>
         </div>
     </div>
   </div>
@@ -791,6 +807,8 @@
         <span class="toggle-underline-icon">S</span>
     </button>
     <div class="fab-button-group">
+        <!-- NEW: Paragraph Selection Button -->
+        <button id="toggle-paragraph-selection-btn" title="Enable Paragraph Selection">¶</button>
         <button id="copy-page-text-btn" title="Copy Page Text">📝</button>
         <button id="toggle-text-selection-btn" title="Enable Text Selection">TS</button>
     </div>
@@ -814,7 +832,6 @@
 </div>
 
   <script type="module">
-    // This script should be placed before the main script.js
     import { GlobalWorkerOptions } from './lib/pdfjs/pdf.mjs'; 
     GlobalWorkerOptions.workerSrc = './lib/pdfjs/pdf.worker.mjs';
   </script>
