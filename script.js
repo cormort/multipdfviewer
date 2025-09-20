@@ -1,11 +1,8 @@
 // script.js
 
-// [MODIFIED] Import the IndexedDB helper functions
 import { initDB, saveFiles, getFiles } from './db.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if pdfjsLib is defined. The inline script in HTML now handles GlobalWorkerOptions
-    // to ensure it's set before pdf.mjs fully initializes.
     if (typeof pdfjsLib === 'undefined') {
         console.error('pdfjsLib is not defined. Ensure pdf.mjs is loaded before script.js.');
         alert('Failed to load PDF library. Please refresh the page or check your internet connection.');
@@ -17,11 +14,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalTotalPages = 0;
     let currentPage = 1;
     let pageRendering = false;
-    let searchResults = []; // To store search results for navigation
+    let searchResults = [];
 
-    // --- NEW: State variables for zoom ---
-    let currentZoomMode = 'height'; // 'width', 'height', or 'custom'
-    let currentScale = 1.0; // Stores the actual scale value
+    let currentZoomMode = 'height';
+    let currentScale = 1.0;
+
+    // --- NEW: State variables for paragraph selection ---
+    let paragraphSelectionModeActive = false;
+    let currentPageTextContent = null; // Cache for current page's text items
+    let currentViewport = null; // Cache for current page's viewport
 
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas ? canvas.getContext('2d') : null;
@@ -61,12 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsList = document.getElementById('results-list');
     const copyPageTextBtn = document.getElementById('copy-page-text-btn');
 
-    // --- NEW: Element selectors for zoom controls ---
     const zoomOutBtn = document.getElementById('zoom-out-btn');
     const zoomInBtn = document.getElementById('zoom-in-btn');
     const fitWidthBtn = document.getElementById('fit-width-btn');
     const fitHeightBtn = document.getElementById('fit-height-btn');
     const zoomLevelDisplay = document.getElementById('zoom-level-display');
+
+    // --- NEW: Paragraph selection button ---
+    const toggleParagraphSelectionBtn = document.getElementById('toggle-paragraph-selection-btn');
 
 
     let localMagnifierEnabled = false;
@@ -81,10 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastY = 0;
 
     async function loadAndProcessFiles(files) {
-        if (!files || files.length === 0) {
-            return;
-        }
-
+        if (!files || files.length === 0) return;
         if (typeof pdfjsLib === 'undefined') {
             alert('The PDF library failed to load correctly, cannot open files.');
             return;
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         globalTotalPages = 0;
         currentPage = 1;
         searchResults = [];
-        currentZoomMode = 'height'; // Reset to default on new file load
+        currentZoomMode = 'height';
 
         if (resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
         if (resultsList) resultsList.innerHTML = '';
@@ -104,9 +104,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchInputElem) searchInputElem.value = '';
         showSearchResultsHighlights = true;
         if (textLayerDivGlobal) textLayerDivGlobal.classList.remove('highlights-hidden');
+        
+        // Deactivate all modes
         highlighterEnabled = false;
         textSelectionModeActive = false;
         localMagnifierEnabled = false;
+        paragraphSelectionModeActive = false;
+
         if (textLayerDivGlobal) {
             textLayerDivGlobal.classList.remove('text-selection-active');
             textLayerDivGlobal.style.pointerEvents = 'none';
@@ -115,22 +119,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canvas) canvas.style.visibility = 'visible';
         if (drawingCtx && drawingCanvas) drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
         if (magnifierGlass) magnifierGlass.style.display = 'none';
+        if (pdfContainer) pdfContainer.classList.remove('paragraph-selection-mode');
 
         const loadingPromises = Array.from(files).map(file => {
             return new Promise((resolve) => {
                 if (!file || file.type !== 'application/pdf') {
-                    console.warn(`Skipping non-PDF file: ${file ? file.name : 'undefined file'}`);
                     resolve(null);
                     return;
                 }
                 const reader = new FileReader();
                 reader.onload = function() {
                     const typedarray = new Uint8Array(this.result);
-                    pdfjsLib.getDocument({
-                        data: typedarray,
-                        isEvalSupported: false,
-                        enableXfa: false
-                    }).promise.then(pdf => {
+                    pdfjsLib.getDocument({ data: typedarray, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
                         resolve({ pdf: pdf, name: file.name });
                     }).catch(reason => {
                         console.error(`Error loading ${file.name}:`, reason);
@@ -183,13 +183,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function getDocAndLocalPage(globalPage) {
-        if (globalPage < 1 || globalPage > globalTotalPages || pageMap.length === 0) {
-            return null;
-        }
+        if (globalPage < 1 || globalPage > globalTotalPages || pageMap.length === 0) return null;
         const mapping = pageMap[globalPage - 1];
-        if (!mapping || pdfDocs[mapping.docIndex] === undefined) {
-             return null;
-        }
+        if (!mapping || pdfDocs[mapping.docIndex] === undefined) return null;
         return {
             doc: pdfDocs[mapping.docIndex],
             localPage: mapping.localPage,
@@ -204,30 +200,21 @@ document.addEventListener('DOMContentLoaded', () => {
             magnifierCanvas.width = LOCAL_MAGNIFIER_SIZE;
             magnifierCanvas.height = LOCAL_MAGNIFIER_SIZE;
         }
-        if (localMagnifierZoomSelector) {
-            LOCAL_MAGNIFIER_ZOOM_LEVEL = parseFloat(localMagnifierZoomSelector.value);
-        }
+        if (localMagnifierZoomSelector) LOCAL_MAGNIFIER_ZOOM_LEVEL = parseFloat(localMagnifierZoomSelector.value);
         if (localMagnifierZoomControlsDiv) localMagnifierZoomControlsDiv.style.display = 'none';
     }
 
     function updateLocalMagnifier(clientX, clientY) {
-        if (!localMagnifierEnabled || pdfDocs.length === 0 || pageRendering || !canvas || !magnifierGlass || !localMagnifierCtx || !pdfContainer) {
+        if (!localMagnifierEnabled || !canvas || !magnifierGlass || !localMagnifierCtx || !pdfContainer) {
             if (magnifierGlass) magnifierGlass.style.display = 'none';
             return;
         }
         const pdfContainerRect = pdfContainer.getBoundingClientRect();
         const pointXInContainer = clientX - pdfContainerRect.left;
         const pointYInContainer = clientY - pdfContainerRect.top;
+        const canvasRectInContainer = { left: canvas.offsetLeft, top: canvas.offsetTop, right: canvas.offsetLeft + canvas.offsetWidth, bottom: canvas.offsetTop + canvas.offsetHeight };
 
-        const canvasRectInContainer = {
-            left: canvas.offsetLeft,
-            top: canvas.offsetTop,
-            right: canvas.offsetLeft + canvas.offsetWidth,
-            bottom: canvas.offsetTop + canvas.offsetHeight
-        };
-
-        if (pointXInContainer < canvasRectInContainer.left || pointXInContainer > canvasRectInContainer.right ||
-            pointYInContainer < canvasRectInContainer.top || pointYInContainer > canvasRectInContainer.bottom) {
+        if (pointXInContainer < canvasRectInContainer.left || pointXInContainer > canvasRectInContainer.right || pointYInContainer < canvasRectInContainer.top || pointYInContainer > canvasRectInContainer.bottom) {
             magnifierGlass.style.display = 'none';
             return;
         }
@@ -235,79 +222,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const pointXOnCanvasCSS = pointXInContainer - canvas.offsetLeft;
         const pointYOnCanvasCSS = pointYInContainer - canvas.offsetTop;
-
         const scaleX = canvas.width / canvas.offsetWidth;
         const scaleY = canvas.height / canvas.offsetHeight;
         const srcX = pointXOnCanvasCSS * scaleX;
         const srcY = pointYOnCanvasCSS * scaleY;
-
         const srcRectCSSWidth = LOCAL_MAGNIFIER_SIZE / LOCAL_MAGNIFIER_ZOOM_LEVEL;
         const srcRectCSSHeight = LOCAL_MAGNIFIER_SIZE / LOCAL_MAGNIFIER_ZOOM_LEVEL;
         const srcRectPixelWidth = srcRectCSSWidth * scaleX;
         const srcRectPixelHeight = srcRectCSSHeight * scaleY;
-
         const srcRectX = srcX - (srcRectPixelWidth / 2);
         const srcRectY = srcY - (srcRectPixelHeight / 2);
 
         localMagnifierCtx.clearRect(0, 0, LOCAL_MAGNIFIER_SIZE, LOCAL_MAGNIFIER_SIZE);
         localMagnifierCtx.fillStyle = 'white';
         localMagnifierCtx.fillRect(0, 0, LOCAL_MAGNIFIER_SIZE, LOCAL_MAGNIFIER_SIZE);
-
-        localMagnifierCtx.drawImage(
-            canvas,
-            srcRectX, srcRectY, srcRectPixelWidth, srcRectPixelHeight,
-            0, 0, LOCAL_MAGNIFIER_SIZE, LOCAL_MAGNIFIER_SIZE
-        );
+        localMagnifierCtx.drawImage(canvas, srcRectX, srcRectY, srcRectPixelWidth, srcRectPixelHeight, 0, 0, LOCAL_MAGNIFIER_SIZE, LOCAL_MAGNIFIER_SIZE);
 
         if (drawingCanvas && drawingCanvas.width > 0 && drawingCanvas.height > 0) {
             const srcDrawRectX = pointXOnCanvasCSS - (srcRectCSSWidth / 2);
             const srcDrawRectY = pointYOnCanvasCSS - (srcRectCSSHeight / 2);
-            localMagnifierCtx.drawImage(
-                drawingCanvas,
-                srcDrawRectX, srcDrawRectY, srcRectCSSWidth, srcRectCSSHeight,
-                0, 0, LOCAL_MAGNIFIER_SIZE, LOCAL_MAGNIFIER_SIZE
-            );
+            localMagnifierCtx.drawImage(drawingCanvas, srcDrawRectX, srcDrawRectY, srcRectCSSWidth, srcRectCSSHeight, 0, 0, LOCAL_MAGNIFIER_SIZE, LOCAL_MAGNIFIER_SIZE);
         }
 
         let magnifierTop = (pointYInContainer - LOCAL_MAGNIFIER_SIZE - 10);
         let magnifierLeft = (pointXInContainer - (LOCAL_MAGNIFIER_SIZE / 2));
-
         magnifierTop = Math.max(0, Math.min(magnifierTop, pdfContainer.clientHeight - LOCAL_MAGNIFIER_SIZE - 5));
         magnifierLeft = Math.max(0, Math.min(magnifierLeft, pdfContainer.clientWidth - LOCAL_MAGNIFIER_SIZE - 5));
-
         magnifierGlass.style.top = `${magnifierTop + pdfContainer.scrollTop}px`;
         magnifierGlass.style.left = `${magnifierLeft + pdfContainer.scrollLeft}px`;
     }
 
-    // --- NEW: Function to update the zoom controls UI ---
     function updateZoomControls() {
         if (!zoomLevelDisplay || !fitWidthBtn || !fitHeightBtn) return;
-        
         zoomLevelDisplay.textContent = `${Math.round(currentScale * 100)}%`;
-
-        fitWidthBtn.classList.remove('active');
-        fitHeightBtn.classList.remove('active');
-
-        if (currentZoomMode === 'width') {
-            fitWidthBtn.classList.add('active');
-        } else if (currentZoomMode === 'height') {
-            fitHeightBtn.classList.add('active');
-        }
+        fitWidthBtn.classList.toggle('active', currentZoomMode === 'width');
+        fitHeightBtn.classList.toggle('active', currentZoomMode === 'height');
     }
 
     function updatePageControls() {
         const fabContainer = document.getElementById('floating-action-buttons');
         const hasDocs = pdfDocs.length > 0;
 
-        // Simplified check
         if (!pageNumDisplay || !fabContainer) {
             if (!hasDocs && pageNumDisplay) pageNumDisplay.textContent = '- / -';
             if (!hasDocs && fabContainer) fabContainer.style.display = 'none';
             return;
         }
 
-        const allControls = [goToFirstPageBtn, prevPageBtn, nextPageBtn, pageToGoInput, goToPageBtn, pageSlider, toggleUnderlineBtn, toggleHighlighterBtn, clearHighlighterBtn, toggleTextSelectionBtn, sharePageBtn, exportPageBtn, toggleLocalMagnifierBtn, localMagnifierZoomSelector, copyPageTextBtn, zoomInBtn, zoomOutBtn, fitWidthBtn, fitHeightBtn];
-        
+        const allControls = [goToFirstPageBtn, prevPageBtn, nextPageBtn, pageToGoInput, goToPageBtn, pageSlider, toggleUnderlineBtn, toggleHighlighterBtn, clearHighlighterBtn, toggleTextSelectionBtn, sharePageBtn, exportPageBtn, toggleLocalMagnifierBtn, localMagnifierZoomSelector, copyPageTextBtn, zoomInBtn, zoomOutBtn, fitWidthBtn, fitHeightBtn, toggleParagraphSelectionBtn];
         allControls.forEach(el => { if(el) el.disabled = !hasDocs; });
 
         if (!hasDocs) {
@@ -331,43 +293,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fabContainer.style.display = 'flex';
 
-        showSearchResultsHighlights ? toggleUnderlineBtn.classList.add('active') : toggleUnderlineBtn.classList.remove('active');
-        highlighterEnabled ? toggleHighlighterBtn.classList.add('active') : toggleHighlighterBtn.classList.remove('active');
+        toggleUnderlineBtn.classList.toggle('active', showSearchResultsHighlights);
+        toggleHighlighterBtn.classList.toggle('active', highlighterEnabled);
         toggleHighlighterBtn.title = highlighterEnabled ? 'Disable Highlighter' : 'Enable Highlighter';
-        textSelectionModeActive ? toggleTextSelectionBtn.classList.add('active') : toggleTextSelectionBtn.classList.remove('active');
+        toggleTextSelectionBtn.classList.toggle('active', textSelectionModeActive);
         toggleTextSelectionBtn.title = textSelectionModeActive ? 'Disable Text Selection' : 'Enable Text Selection';
+        toggleParagraphSelectionBtn.classList.toggle('active', paragraphSelectionModeActive);
+        toggleParagraphSelectionBtn.title = paragraphSelectionModeActive ? 'Disable Paragraph Selection' : 'Enable Paragraph Selection';
         if (sharePageBtn) sharePageBtn.disabled = !navigator.share;
-        localMagnifierEnabled ? toggleLocalMagnifierBtn.classList.add('active') : toggleLocalMagnifierBtn.classList.remove('active');
+        toggleLocalMagnifierBtn.classList.toggle('active', localMagnifierEnabled);
         toggleLocalMagnifierBtn.title = localMagnifierEnabled ? 'Disable Magnifier' : 'Enable Magnifier';
         if (localMagnifierZoomControlsDiv) localMagnifierZoomControlsDiv.style.display = (hasDocs && localMagnifierEnabled) ? 'flex' : 'none';
 
         updateResultsNav();
-        updateZoomControls(); // Update zoom UI
+        updateZoomControls();
     }
 
     if (toolbarToggleTab && appContainer) {
-        toolbarToggleTab.addEventListener('click', () => {
-            appContainer.classList.toggle('menu-active');
-        });
+        toolbarToggleTab.addEventListener('click', () => appContainer.classList.toggle('menu-active'));
     }
     if (pdfContainer && appContainer) {
         pdfContainer.addEventListener('click', (e) => {
-            if (window.innerWidth <= 768 && appContainer.classList.contains('menu-active')) {
-                if (!toolbar.contains(e.target)) {
-                    appContainer.classList.remove('menu-active');
-                }
+            if (window.innerWidth <= 768 && appContainer.classList.contains('menu-active') && !toolbar.contains(e.target)) {
+                appContainer.classList.remove('menu-active');
             }
         });
     }
 
-    // --- MODIFIED: renderPage now uses the new zoom logic ---
     function renderPage(globalPageNum, highlightPattern = null) {
-        if (pdfDocs.length === 0 || !pdfContainer || !canvas || !ctx || !textLayerDivGlobal || !drawingCanvas || !drawingCtx) {
-            return;
-        }
+        if (pdfDocs.length === 0 || !pdfContainer || !canvas || !ctx) return;
         pageRendering = true;
+        currentPageTextContent = null; // Invalidate cache
+        currentViewport = null; // Invalidate cache
         updatePageControls();
         if (drawingCtx && drawingCanvas) drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+        clearParagraphHighlights(); // Clear highlights on page change
 
         const pageInfo = getDocAndLocalPage(globalPageNum);
         if (!pageInfo) {
@@ -382,27 +342,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const viewportOriginal = page.getViewport({ scale: 1 });
             let scaleForCss;
 
-            // Calculate scale based on the current zoom mode
             if (currentZoomMode === 'width') {
                 scaleForCss = pdfContainer.clientWidth / viewportOriginal.width;
             } else if (currentZoomMode === 'height') {
-                // Subtract padding from available height
                 const availableHeight = pdfContainer.clientHeight - 20; 
                 scaleForCss = availableHeight / viewportOriginal.height;
-            } else { // 'custom'
+            } else {
                 scaleForCss = currentScale;
             }
-            currentScale = scaleForCss; // Update global scale for display
+            currentScale = scaleForCss;
 
             if (canvas.dataset.originalBorder && pdfDocs.length > 0) canvas.style.border = canvas.dataset.originalBorder;
             else if (pdfDocs.length > 0) canvas.style.border = '1px solid #000';
 
-            showSearchResultsHighlights ? textLayerDivGlobal.classList.remove('highlights-hidden') : textLayerDivGlobal.classList.add('highlights-hidden');
+            textLayerDivGlobal.classList.toggle('highlights-hidden', !showSearchResultsHighlights);
 
             const viewportCss = page.getViewport({ scale: scaleForCss });
+            currentViewport = viewportCss; // Cache viewport
             const devicePixelRatio = window.devicePixelRatio || 1;
             const qualityMultiplier = parseFloat(qualitySelector.value) || 1.5;
-
             const renderScale = scaleForCss * devicePixelRatio * qualityMultiplier;
             const viewportRender = page.getViewport({ scale: renderScale });
 
@@ -413,17 +371,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             page.render(renderContext).promise.then(() => {
                 pageRendering = false;
-                updatePageControls(); // This will also call updateZoomControls
+                updatePageControls();
 
+                const canvasOffsetTop = canvas.offsetTop;
+                const canvasOffsetLeft = canvas.offsetLeft;
                 textLayerDivGlobal.style.width = `${viewportCss.width}px`;
                 textLayerDivGlobal.style.height = `${viewportCss.height}px`;
-                textLayerDivGlobal.style.top = `${canvas.offsetTop}px`;
-                textLayerDivGlobal.style.left = `${canvas.offsetLeft}px`;
+                textLayerDivGlobal.style.top = `${canvasOffsetTop}px`;
+                textLayerDivGlobal.style.left = `${canvasOffsetLeft}px`;
 
                 drawingCanvas.width = viewportCss.width;
                 drawingCanvas.height = viewportCss.height;
-                drawingCanvas.style.top = `${canvas.offsetTop}px`;
-                drawingCanvas.style.left = `${canvas.offsetLeft}px`;
+                drawingCanvas.style.top = `${canvasOffsetTop}px`;
+                drawingCanvas.style.left = `${canvasOffsetLeft}px`;
 
                 drawingCtx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
                 drawingCtx.lineWidth = 15;
@@ -445,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTextLayer(page, viewport, highlightPattern) {
         if (!textLayerDivGlobal || !pdfjsLib || !pdfjsLib.Util) return Promise.resolve();
         return page.getTextContent().then(function(textContent) {
+            currentPageTextContent = textContent; // Cache text content
             textLayerDivGlobal.innerHTML = '';
             textContent.items.forEach(function(item) {
                 const textDiv = document.createElement('div');
@@ -478,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDrawing(e) {
-        if (pdfDocs.length === 0 || pageRendering || !highlighterEnabled || !drawingCanvas || !drawingCtx) return;
+        if (!highlighterEnabled) return;
         isDrawing = true;
         const pos = getEventPosition(drawingCanvas, e);
         [lastX, lastY] = [pos.x, pos.y];
@@ -488,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function draw(e) {
-        if (!isDrawing || pdfDocs.length === 0 || !highlighterEnabled || !drawingCanvas || !drawingCtx) return;
+        if (!isDrawing || !highlighterEnabled) return;
         const pos = getEventPosition(drawingCanvas, e);
         drawingCtx.lineTo(pos.x, pos.y);
         drawingCtx.stroke();
@@ -517,19 +478,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const doc = pdfDocs[docIndex];
             if (!doc || !canvasEl) return;
             const page = await doc.getPage(localPageNum);
-            
             const viewport = page.getViewport({ scale: 1 });
             const scale = (canvasEl.parentElement.clientWidth - 20) / viewport.width;
             const scaledViewport = page.getViewport({ scale: scale });
-            
             const thumbnailCtx = canvasEl.getContext('2d');
             canvasEl.height = scaledViewport.height;
             canvasEl.width = scaledViewport.width;
-            
-            const renderContext = {
-              canvasContext: thumbnailCtx,
-              viewport: scaledViewport
-            };
+            const renderContext = { canvasContext: thumbnailCtx, viewport: scaledViewport };
             await page.render(renderContext).promise;
         } catch (error) {
             console.error(`Failed to render thumbnail for doc ${docIndex} page ${localPageNum}:`, error);
@@ -585,44 +540,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pageInfo = pageMap[currentGlobalPageForSearch - 1];
                 
                 promises.push(
-                    doc.getPage(i).then(p => {
-                        return p.getTextContent().then(textContent => {
-                            const pageText = textContent.items.map(item => item.str).join('');
+                    doc.getPage(i).then(p => p.getTextContent().then(textContent => {
+                        const pageText = textContent.items.map(item => item.str).join('');
+                        pattern.lastIndex = 0;
+                        if (pattern.test(pageText)) {
                             pattern.lastIndex = 0;
-                            if (pattern.test(pageText)) {
-                                pattern.lastIndex = 0;
-                                const matchResult = pattern.exec(pageText);
-                                let foundMatchSummary = 'Match found';
-
-                                if (matchResult) {
-                                    const matchedText = matchResult[0];
-                                    const matchIndex = matchResult.index;
-                                    const contextLength = 40;
-                                    const startIndex = Math.max(0, matchIndex - contextLength);
-                                    const endIndex = Math.min(pageText.length, matchIndex + matchedText.length + contextLength);
-
-                                    const preMatch = pageText.substring(startIndex, matchIndex).replace(/\n/g, ' ');
-                                    const highlightedMatch = matchedText.replace(/\n/g, ' ');
-                                    const postMatch = pageText.substring(matchIndex + matchedText.length, endIndex).replace(/\n/g, ' ');
-
-                                    foundMatchSummary =
-                                        (startIndex > 0 ? '... ' : '') +
-                                        preMatch +
-                                        `<span class="wavy-underline">${highlightedMatch}</span>` +
-                                        postMatch +
-                                        (endIndex < pageText.length ? ' ...' : '');
-                                }
-                                return {
-                                    page: currentGlobalPageForSearch,
-                                    summary: foundMatchSummary,
-                                    docName: pageInfo.docName,
-                                    docIndex: pageInfo.docIndex,
-                                    localPage: pageInfo.localPage
-                                };
+                            const matchResult = pattern.exec(pageText);
+                            let foundMatchSummary = 'Match found';
+                            if (matchResult) {
+                                const matchedText = matchResult[0];
+                                const matchIndex = matchResult.index;
+                                const contextLength = 40;
+                                const startIndex = Math.max(0, matchIndex - contextLength);
+                                const endIndex = Math.min(pageText.length, matchIndex + matchedText.length + contextLength);
+                                const preMatch = pageText.substring(startIndex, matchIndex).replace(/\n/g, ' ');
+                                const highlightedMatch = matchedText.replace(/\n/g, ' ');
+                                const postMatch = pageText.substring(matchIndex + matchedText.length, endIndex).replace(/\n/g, ' ');
+                                foundMatchSummary = `${startIndex > 0 ? '... ' : ''}${preMatch}<span class="wavy-underline">${highlightedMatch}</span>${postMatch}${endIndex < pageText.length ? ' ...' : ''}`;
                             }
-                            return null;
-                        });
-                    }).catch(err => {
+                            return { page: currentGlobalPageForSearch, summary: foundMatchSummary, docName: pageInfo.docName, docIndex: pageInfo.docIndex, localPage: pageInfo.localPage };
+                        }
+                        return null;
+                    })).catch(err => {
                         console.warn(`Error processing page for search: Doc ${pageInfo.docName}, Page ${i}`, err);
                         return null;
                     })
@@ -633,7 +572,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         Promise.all(promises).then((allPageResults) => {
             searchResults = allPageResults.filter(r => r !== null).sort((a, b) => a.page - b.page);
-
             if(resultsDropdown) resultsDropdown.innerHTML = '';
             if(resultsList) resultsList.innerHTML = '';
 
@@ -650,14 +588,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const resultItem = document.createElement('div');
                     resultItem.className = 'result-item';
-                    resultItem.innerHTML = `
-                        <canvas class="thumbnail-canvas"></canvas>
-                        <div class="page-info">Page ${result.page} (File: ${result.docName})</div>
-                        <div class="context-snippet">${result.summary}</div>
-                    `;
-                    resultItem.addEventListener('click', () => {
-                        goToPage(result.page, pattern);
-                    });
+                    resultItem.innerHTML = `<canvas class="thumbnail-canvas"></canvas><div class="page-info">Page ${result.page} (File: ${result.docName})</div><div class="context-snippet">${result.summary}</div>`;
+                    resultItem.addEventListener('click', () => goToPage(result.page, pattern));
                     if(resultsList) resultsList.appendChild(resultItem);
                     
                     const thumbnailCanvas = resultItem.querySelector('.thumbnail-canvas');
@@ -673,7 +605,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.innerWidth <= 768 && appContainer.classList.contains('menu-active')) {
                 appContainer.classList.remove('menu-active');
             }
-
         }).catch(err => {
             console.error('An unexpected error occurred during search:', err);
             if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Error</option>';
@@ -686,24 +617,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateResultsNav() {
         const hasResults = searchResults.length > 0;
         document.body.classList.toggle('results-bar-visible', hasResults);
-        if (appContainer) {
-            appContainer.classList.toggle('results-panel-visible', hasResults);
-        }
+        if (appContainer) appContainer.classList.toggle('results-panel-visible', hasResults);
     }
 
-
-    if (searchActionButton) {
-        searchActionButton.addEventListener('click', searchKeyword);
-    }
-    
-    if (searchInputElem) {
-        searchInputElem.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                searchActionButton.click();
-            }
-        });
-    }
+    if (searchActionButton) searchActionButton.addEventListener('click', searchKeyword);
+    if (searchInputElem) searchInputElem.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchActionButton.click(); } });
+    if (resultsDropdown) resultsDropdown.addEventListener('change', () => goToPageDropdown(resultsDropdown.value));
 
     function goToPageDropdown(pageNumStr) {
         if (pageNumStr && resultsDropdown) {
@@ -712,20 +631,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (resultsDropdown) {
-        resultsDropdown.addEventListener('change', () => goToPageDropdown(resultsDropdown.value));
-    }
-
     function goToPage(globalPageNum, highlightPatternForPage = null) {
         if (pdfDocs.length === 0 || isNaN(globalPageNum)) return;
         const n = Math.max(1, Math.min(globalPageNum, globalTotalPages));
-
         const currentGlobalPattern = getPatternFromSearchInput();
-
         if (pageRendering && currentPage === n && JSON.stringify(highlightPatternForPage) === JSON.stringify(currentGlobalPattern)) return;
-        if (pageRendering && !(currentPage === n && JSON.stringify(highlightPatternForPage) !== JSON.stringify(currentGlobalPattern))) {
-            return;
-        }
+        if (pageRendering && !(currentPage === n && JSON.stringify(highlightPatternForPage) !== JSON.stringify(currentGlobalPattern))) return;
         currentPage = n;
         const finalHighlightPattern = highlightPatternForPage !== null ? highlightPatternForPage : currentGlobalPattern;
         renderPage(currentPage, finalHighlightPattern);
@@ -760,33 +671,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (goToPageBtn && pageToGoInput) {
         goToPageBtn.addEventListener('click', () => {
             const pn = parseInt(pageToGoInput.value);
-            if (!isNaN(pn)) {
-                goToPage(pn, getPatternFromSearchInput());
-            } else {
-                if (pdfDocs.length > 0) alert(`Please enter a page number between 1 and ${globalTotalPages}`);
-                else alert('Please load a PDF file first');
-                if (pdfDocs.length > 0 && pageToGoInput) pageToGoInput.value = currentPage;
-            }
+            if (!isNaN(pn)) goToPage(pn, getPatternFromSearchInput());
         });
     }
-
     if (pageToGoInput && goToPageBtn) {
-        pageToGoInput.addEventListener('keypress', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                goToPageBtn.click();
-            }
-        });
+        pageToGoInput.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); goToPageBtn.click(); } });
     }
-
     if (pageSlider) pageSlider.addEventListener('input', () => {
         const newPage = parseInt(pageSlider.value);
-        if (pageToGoInput && pageToGoInput.value !== newPage.toString()) {
-            pageToGoInput.value = newPage;
-        }
-        if (currentPage !== newPage) {
-            goToPage(newPage, getPatternFromSearchInput());
-        }
+        if (pageToGoInput) pageToGoInput.value = newPage;
+        if (currentPage !== newPage) goToPage(newPage, getPatternFromSearchInput());
     });
 
     if (qualitySelector) qualitySelector.addEventListener('change', () => { if (pdfDocs.length > 0) renderPage(currentPage, getPatternFromSearchInput()); });
@@ -794,10 +688,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportPageBtn) exportPageBtn.addEventListener('click', () => {
         if (pdfDocs.length === 0 || !canvas) { alert('Please load a PDF file first'); return; }
         if (pageRendering) { alert('The page is still rendering, please wait'); return; }
-
         const wasCanvasHidden = canvas.style.visibility === 'hidden';
         if (wasCanvasHidden) canvas.style.visibility = 'visible';
-
         try {
             const tc = document.createElement('canvas');
             tc.width = canvas.width; tc.height = canvas.height;
@@ -805,7 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!tctx) { alert('Could not get context for the export canvas'); return; }
             tctx.drawImage(canvas, 0, 0);
             if (drawingCanvas && drawingCtx) tctx.drawImage(drawingCanvas, 0, 0, drawingCanvas.width, drawingCanvas.height, 0, 0, tc.width, tc.height);
-
             const idu = tc.toDataURL('image/png');
             const l = document.createElement('a');
             l.href = idu;
@@ -827,187 +718,146 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pdfDocs.length === 0) return;
         showSearchResultsHighlights = !showSearchResultsHighlights;
         renderPage(currentPage, getPatternFromSearchInput());
-        updatePageControls();
     });
 
-    if (toggleHighlighterBtn) toggleHighlighterBtn.addEventListener('click', () => {
-        if (pdfDocs.length === 0 || !drawingCanvas || !canvas) return;
-        highlighterEnabled = !highlighterEnabled;
+    // --- MODIFIED: All mode toggles now deactivate other modes ---
+    function deactivateAllModes(except = null) {
+        if (except !== 'highlighter' && highlighterEnabled) {
+            highlighterEnabled = false;
+            if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
+        }
+        if (except !== 'textSelection' && textSelectionModeActive) {
+            textSelectionModeActive = false;
+            if (textLayerDivGlobal) {
+                textLayerDivGlobal.style.pointerEvents = 'none';
+                textLayerDivGlobal.classList.remove('text-selection-active');
+            }
+            if (canvas) canvas.style.visibility = 'visible';
+        }
+        if (except !== 'localMagnifier' && localMagnifierEnabled) {
+            localMagnifierEnabled = false;
+            if (magnifierGlass) magnifierGlass.style.display = 'none';
+        }
+        if (except !== 'paragraphSelection' && paragraphSelectionModeActive) {
+            paragraphSelectionModeActive = false;
+            if (pdfContainer) pdfContainer.classList.remove('paragraph-selection-mode');
+            clearParagraphHighlights();
+        }
+        updatePageControls();
+    }
 
-        if (highlighterEnabled) {
-            if (textSelectionModeActive) {
-                textSelectionModeActive = false;
-                if (textLayerDivGlobal) { textLayerDivGlobal.style.pointerEvents = 'none'; textLayerDivGlobal.classList.remove('text-selection-active'); }
-                if (canvas) canvas.style.visibility = 'visible';
-            }
-            if (localMagnifierEnabled) {
-                localMagnifierEnabled = false;
-                if (magnifierGlass) magnifierGlass.style.display = 'none';
-            }
-            drawingCanvas.style.pointerEvents = 'auto';
-        } else {
-            drawingCanvas.style.pointerEvents = 'none';
+    if (toggleHighlighterBtn) toggleHighlighterBtn.addEventListener('click', () => {
+        if (pdfDocs.length === 0) return;
+        const wasActive = highlighterEnabled;
+        deactivateAllModes();
+        if (!wasActive) {
+            highlighterEnabled = true;
+            if (drawingCanvas) drawingCanvas.style.pointerEvents = 'auto';
         }
         updatePageControls();
     });
 
-    if (toggleTextSelectionBtn) {
-        toggleTextSelectionBtn.addEventListener('click', () => {
-            if (pdfDocs.length === 0 || !textLayerDivGlobal || !canvas || !drawingCanvas) return;
-            textSelectionModeActive = !textSelectionModeActive;
-
-            if (textSelectionModeActive) {
-                if (highlighterEnabled) {
-                    highlighterEnabled = false;
-                    if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
-                }
-                if (localMagnifierEnabled) {
-                    localMagnifierEnabled = false;
-                    if (magnifierGlass) magnifierGlass.style.display = 'none';
-                }
+    if (toggleTextSelectionBtn) toggleTextSelectionBtn.addEventListener('click', () => {
+        if (pdfDocs.length === 0) return;
+        const wasActive = textSelectionModeActive;
+        deactivateAllModes();
+        if (!wasActive) {
+            textSelectionModeActive = true;
+            if (textLayerDivGlobal) {
                 textLayerDivGlobal.style.pointerEvents = 'auto';
                 textLayerDivGlobal.classList.add('text-selection-active');
-                canvas.style.visibility = 'hidden';
-                drawingCanvas.style.pointerEvents = 'none';
-            } else {
-                textLayerDivGlobal.style.pointerEvents = 'none';
-                textLayerDivGlobal.classList.remove('text-selection-active');
-                canvas.style.visibility = 'visible';
             }
-            updatePageControls();
-        });
-    }
+            if (canvas) canvas.style.visibility = 'hidden';
+        }
+        updatePageControls();
+    });
+
+    if (toggleLocalMagnifierBtn) toggleLocalMagnifierBtn.addEventListener('click', () => {
+        if (pdfDocs.length === 0) return;
+        const wasActive = localMagnifierEnabled;
+        deactivateAllModes();
+        if (!wasActive) {
+            localMagnifierEnabled = true;
+        }
+        updatePageControls();
+    });
+
+    if (toggleParagraphSelectionBtn) toggleParagraphSelectionBtn.addEventListener('click', () => {
+        if (pdfDocs.length === 0) return;
+        const wasActive = paragraphSelectionModeActive;
+        deactivateAllModes();
+        if (!wasActive) {
+            paragraphSelectionModeActive = true;
+            if (pdfContainer) pdfContainer.classList.add('paragraph-selection-mode');
+        }
+        updatePageControls();
+    });
+
 
     if (clearHighlighterBtn && drawingCtx && drawingCanvas) clearHighlighterBtn.addEventListener('click', () => {
         if (pdfDocs.length === 0) return;
         drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     });
     
-    if (copyPageTextBtn) {
-        copyPageTextBtn.addEventListener('click', async () => {
-            if (pdfDocs.length === 0 || pageRendering) return;
+    if (copyPageTextBtn) copyPageTextBtn.addEventListener('click', async () => {
+        if (pdfDocs.length === 0 || pageRendering) return;
+        const pageInfo = getDocAndLocalPage(currentPage);
+        if (!pageInfo) { showFeedback('Could not get current page info.'); return; }
+        try {
+            const page = await pageInfo.doc.getPage(pageInfo.localPage);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join('\n');
+            await navigator.clipboard.writeText(pageText);
+            showFeedback('Page text copied to clipboard!');
+        } catch (err) {
+            console.error('Failed to copy text:', err);
+            showFeedback('Error copying page text.');
+        }
+    });
+
+    if (sharePageBtn) sharePageBtn.addEventListener('click', async () => {
+        if (pdfDocs.length === 0 || !canvas) { alert('Please load a PDF file first'); return; }
+        if (pageRendering) { alert('The page is still rendering, please wait'); return; }
+        const wasCanvasHidden = canvas.style.visibility === 'hidden';
+        if (wasCanvasHidden) canvas.style.visibility = 'visible';
+        if (!navigator.share) { alert('Your browser does not support the Web Share API'); if (wasCanvasHidden) canvas.style.visibility = 'hidden'; return; }
+        try {
+            const tc = document.createElement('canvas');
+            tc.width = canvas.width; tc.height = canvas.height;
+            const tctx = tc.getContext('2d');
+            if (!tctx) { alert('Could not get context for the share canvas'); if (wasCanvasHidden) canvas.style.visibility = 'hidden'; return; }
+            tctx.drawImage(canvas, 0, 0);
+            if (drawingCanvas && drawingCtx) { tctx.drawImage(drawingCanvas, 0, 0, drawingCanvas.width, drawingCanvas.height, 0, 0, tc.width, tc.height); }
+            const blob = await new Promise(resolve => tc.toBlob(resolve, 'image/png'));
+            if (!blob) { throw new Error('Failed to create image data from canvas.'); }
             const pageInfo = getDocAndLocalPage(currentPage);
-            if (!pageInfo) {
-                showFeedback('Could not get current page info.');
-                return;
-            }
-            
-            try {
-                const page = await pageInfo.doc.getPage(pageInfo.localPage);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join('\n');
-                
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(pageText);
-                    showFeedback('Page text copied to clipboard!');
-                } else {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = pageText;
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    showFeedback('Page text copied to clipboard!');
-                }
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showFeedback('Error copying page text.');
-            }
-        });
-    }
-
-    if (sharePageBtn) {
-        sharePageBtn.addEventListener('click', async () => {
-            if (pdfDocs.length === 0 || !canvas) { alert('Please load a PDF file first'); return; }
-            if (pageRendering) { alert('The page is still rendering, please wait'); return; }
-            const wasCanvasHidden = canvas.style.visibility === 'hidden';
-            if (wasCanvasHidden) canvas.style.visibility = 'visible';
-
-            if (!navigator.share) {
-                alert('Your browser does not support the Web Share API');
-                if (wasCanvasHidden) canvas.style.visibility = 'hidden';
-                return;
-            }
-
-            try {
-                const tc = document.createElement('canvas');
-                tc.width = canvas.width; tc.height = canvas.height;
-                const tctx = tc.getContext('2d');
-                if (!tctx) {
-                    alert('Could not get context for the share canvas');
-                    if (wasCanvasHidden) canvas.style.visibility = 'hidden';
-                    return;
-                }
-                tctx.drawImage(canvas, 0, 0);
-                if (drawingCanvas && drawingCtx) { tctx.drawImage(drawingCanvas, 0, 0, drawingCanvas.width, drawingCanvas.height, 0, 0, tc.width, tc.height); }
-                
-                const blob = await new Promise(resolve => tc.toBlob(resolve, 'image/png'));
-                if (!blob) { throw new Error('Failed to create image data from canvas.'); }
-
-                const pageInfo = getDocAndLocalPage(currentPage);
-                const docNamePart = pageInfo ? pageInfo.docName.replace(/\.pdf$/i, '') : 'document';
-                const fn = `page_${currentPage}_(${docNamePart}-p${pageInfo.localPage})_annotated.png`;
-                const f = new File([blob], fn, { type: 'image/png' });
-                const sd = { title: `PDF Global Page ${currentPage}`, text: `Page ${pageInfo.localPage} from ${docNamePart} (PDF Tool)`, files: [f] };
-
-                if (navigator.canShare && navigator.canShare({ files: [f] })) {
-                    await navigator.share(sd);
-                } else {
-                    console.warn('File sharing not supported, attempting to share text only');
-                    const fsd = { title: sd.title, text: sd.text };
-                    if (fsd.text && navigator.canShare && navigator.canShare(fsd)) {
-                        await navigator.share(fsd);
-                    } else {
-                        alert('Your browser does not support sharing files or text.');
-                    }
-                }
-            } catch (er) {
-                console.error('Share error:', er);
-                if (er.name !== 'AbortError') { alert('Share failed: ' + er.message); }
-            } finally {
-                if (wasCanvasHidden) { canvas.style.visibility = 'hidden'; }
-            }
-        });
-    }
-
-    if (toggleLocalMagnifierBtn) {
-        toggleLocalMagnifierBtn.addEventListener('click', () => {
-            if (pdfDocs.length === 0) return;
-            localMagnifierEnabled = !localMagnifierEnabled;
-
-            if (localMagnifierEnabled) {
-                if (textSelectionModeActive) {
-                    textSelectionModeActive = false;
-                    if (textLayerDivGlobal) { textLayerDivGlobal.style.pointerEvents = 'none'; textLayerDivGlobal.classList.remove('text-selection-active'); }
-                    if (canvas) canvas.style.visibility = 'visible';
-                }
-                if (highlighterEnabled) {
-                    highlighterEnabled = false;
-                    if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
-                }
-                if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
-                if (textLayerDivGlobal) textLayerDivGlobal.style.pointerEvents = 'none';
-                if (canvas) canvas.style.visibility = 'visible';
+            const docNamePart = pageInfo ? pageInfo.docName.replace(/\.pdf$/i, '') : 'document';
+            const fn = `page_${currentPage}_(${docNamePart}-p${pageInfo.localPage})_annotated.png`;
+            const f = new File([blob], fn, { type: 'image/png' });
+            const sd = { title: `PDF Global Page ${currentPage}`, text: `Page ${pageInfo.localPage} from ${docNamePart} (PDF Tool)`, files: [f] };
+            if (navigator.canShare && navigator.canShare({ files: [f] })) {
+                await navigator.share(sd);
             } else {
-                if (magnifierGlass) magnifierGlass.style.display = 'none';
-                if (highlighterEnabled && drawingCanvas) { drawingCanvas.style.pointerEvents = 'auto'; } 
-                else if (textSelectionModeActive && textLayerDivGlobal) { textLayerDivGlobal.style.pointerEvents = 'auto'; }
+                const fsd = { title: sd.title, text: sd.text };
+                if (fsd.text && navigator.canShare && navigator.canShare(fsd)) {
+                    await navigator.share(fsd);
+                } else {
+                    alert('Your browser does not support sharing files or text.');
+                }
             }
-            updatePageControls();
-        });
-    }
+        } catch (er) {
+            console.error('Share error:', er);
+            if (er.name !== 'AbortError') { alert('Share failed: ' + er.message); }
+        } finally {
+            if (wasCanvasHidden) { canvas.style.visibility = 'hidden'; }
+        }
+    });
 
-    if (localMagnifierZoomSelector) {
-        localMagnifierZoomSelector.addEventListener('change', (e) => {
-            LOCAL_MAGNIFIER_ZOOM_LEVEL = parseFloat(e.target.value);
-        });
-    }
+    if (localMagnifierZoomSelector) localMagnifierZoomSelector.addEventListener('change', (e) => { LOCAL_MAGNIFIER_ZOOM_LEVEL = parseFloat(e.target.value); });
 
     function handlePointerMoveForLocalMagnifier(e) {
-        if (!localMagnifierEnabled || pdfDocs.length === 0) return;
+        if (!localMagnifierEnabled) return;
         if (e.type === 'touchmove' || e.type === 'touchstart') e.preventDefault();
-
         let clientX, clientY;
         if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } 
         else if (e.clientX !== undefined) { clientX = e.clientX; clientY = e.clientY; } 
@@ -1016,9 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePointerLeaveForLocalMagnifier() {
-        if (localMagnifierEnabled && magnifierGlass) {
-            magnifierGlass.style.display = 'none';
-        }
+        if (localMagnifierEnabled && magnifierGlass) magnifierGlass.style.display = 'none';
     }
 
     if (pdfContainer) {
@@ -1034,71 +882,30 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            if (pdfDocs.length > 0) {
-                // Re-render with the current mode, which will auto-adjust
-                renderPage(currentPage, getPatternFromSearchInput());
-            }
+            if (pdfDocs.length > 0) renderPage(currentPage, getPatternFromSearchInput());
         }, 250);
     });
 
-    // --- NEW: Event Listeners for Zoom Controls ---
-    if (fitWidthBtn) {
-        fitWidthBtn.addEventListener('click', () => {
-            currentZoomMode = 'width';
-            renderPage(currentPage, getPatternFromSearchInput());
-        });
-    }
-    if (fitHeightBtn) {
-        fitHeightBtn.addEventListener('click', () => {
-            currentZoomMode = 'height';
-            renderPage(currentPage, getPatternFromSearchInput());
-        });
-    }
-    if (zoomInBtn) {
-        zoomInBtn.addEventListener('click', () => {
-            currentZoomMode = 'custom';
-            currentScale += 0.2; // Zoom in by 20%
-            renderPage(currentPage, getPatternFromSearchInput());
-        });
-    }
-    if (zoomOutBtn) {
-        zoomOutBtn.addEventListener('click', () => {
-            currentZoomMode = 'custom';
-            currentScale = Math.max(0.1, currentScale - 0.2); // Zoom out, with a minimum of 10%
-            renderPage(currentPage, getPatternFromSearchInput());
-        });
-    }
-
+    if (fitWidthBtn) fitWidthBtn.addEventListener('click', () => { currentZoomMode = 'width'; renderPage(currentPage, getPatternFromSearchInput()); });
+    if (fitHeightBtn) fitHeightBtn.addEventListener('click', () => { currentZoomMode = 'height'; renderPage(currentPage, getPatternFromSearchInput()); });
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => { currentZoomMode = 'custom'; currentScale += 0.2; renderPage(currentPage, getPatternFromSearchInput()); });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { currentZoomMode = 'custom'; currentScale = Math.max(0.1, currentScale - 0.2); renderPage(currentPage, getPatternFromSearchInput()); });
 
     function navigateToNextResult() {
-        if (searchResults.length === 0 || !resultsDropdown) return;
-        let nextResult = null;
-        for (const result of searchResults) {
-            if (result.page > currentPage) {
-                nextResult = result;
-                break;
-            }
-        }
+        if (searchResults.length === 0) return;
+        const nextResult = searchResults.find(r => r.page > currentPage);
         if (nextResult) {
-            const nextPage = nextResult.page;
-            goToPage(nextPage, getPatternFromSearchInput());
+            goToPage(nextResult.page, getPatternFromSearchInput());
         } else {
             showFeedback('Already at the last result');
         }
     }
 
     function navigateToPreviousResult() {
-        if (searchResults.length === 0 || !resultsDropdown) return;
-        let prevResult = null;
-        for (let i = searchResults.length - 1; i >= 0; i--) {
-            if (searchResults[i].page < currentPage) {
-                prevResult = searchResults[i];
-                break;
-            }
-        }
+        if (searchResults.length === 0) return;
+        const prevResult = [...searchResults].reverse().find(r => r.page < currentPage);
         if (prevResult) {
-            const prevPage = prevResult.page;
-            goToPage(prevPage, getPatternFromSearchInput());
+            goToPage(prevResult.page, getPatternFromSearchInput());
         } else {
             showFeedback('Already at the first result');
         }
@@ -1110,68 +917,190 @@ document.addEventListener('DOMContentLoaded', () => {
             feedbackDiv = document.createElement('div');
             feedbackDiv.id = 'feedback-message';
             document.body.appendChild(feedbackDiv);
-            Object.assign(feedbackDiv.style, {
-                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '10px 20px',
-                borderRadius: '20px', zIndex: '9999', opacity: '0',
-                transition: 'opacity 0.5s', pointerEvents: 'none'
-            });
+            Object.assign(feedbackDiv.style, { position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '10px 20px', borderRadius: '20px', zIndex: '9999', opacity: '0', transition: 'opacity 0.5s', pointerEvents: 'none' });
         }
         feedbackDiv.textContent = message;
         feedbackDiv.style.opacity = '1';
         setTimeout(() => { feedbackDiv.style.opacity = '0'; }, 1500);
     }
 
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let isSwiping = false;
-    const MIN_SWIPE_DISTANCE_X = 50;
-    const MAX_SWIPE_DISTANCE_Y = 60;
+    let touchStartX = 0, touchStartY = 0, isSwiping = false;
+    const MIN_SWIPE_DISTANCE_X = 50, MAX_SWIPE_DISTANCE_Y = 60;
 
     if (pdfContainer) {
         pdfContainer.addEventListener('touchstart', (e) => {
-            if (highlighterEnabled || textSelectionModeActive || localMagnifierEnabled || e.touches.length !== 1) {
-                isSwiping = false;
-                return;
-            }
+            if (highlighterEnabled || textSelectionModeActive || localMagnifierEnabled || paragraphSelectionModeActive || e.touches.length !== 1) { isSwiping = false; return; }
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = true;
         }, { passive: true });
-
-        pdfContainer.addEventListener('touchmove', (e) => {
-            if (!isSwiping || e.touches.length !== 1) return;
-            const currentX = e.touches[0].clientX;
-            const diffX = currentX - touchStartX;
-            if (Math.abs(diffX) < 10) {
-                isSwiping = false;
-            }
-        }, { passive: true });
-
         pdfContainer.addEventListener('touchend', (e) => {
-            if (!isSwiping || e.changedTouches.length !== 1) {
-                isSwiping = false; return;
-            }
+            if (!isSwiping || e.changedTouches.length !== 1) { isSwiping = false; return; }
             const touchEndX = e.changedTouches[0].clientX;
             const touchEndY = e.changedTouches[0].clientY;
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
-
             if (Math.abs(diffX) > MIN_SWIPE_DISTANCE_X && Math.abs(diffY) < MAX_SWIPE_DISTANCE_Y) {
                 const isSearchResultMode = searchResults.length > 0;
-                if (diffX < 0) { // Swipe left
-                    if (isSearchResultMode) { navigateToNextResult(); } 
-                    else { nextPageBtn.click(); }
-                } else { // Swipe right
-                    if (isSearchResultMode) { navigateToPreviousResult(); } 
-                    else { prevPageBtn.click(); }
-                }
+                if (diffX < 0) { isSearchResultMode ? navigateToNextResult() : nextPageBtn.click(); } 
+                else { isSearchResultMode ? navigateToPreviousResult() : prevPageBtn.click(); }
             }
             isSwiping = false;
         });
-
         pdfContainer.addEventListener('touchcancel', () => { isSwiping = false; });
     }
+
+    // --- NEW: Paragraph Selection Logic ---
+    function clearParagraphHighlights() {
+        document.querySelectorAll('.paragraph-highlight, #copy-paragraph-btn').forEach(el => el.remove());
+    }
+
+    function handleParagraphSelection(e) {
+        if (!paragraphSelectionModeActive || !currentPageTextContent || !currentViewport) return;
+
+        clearParagraphHighlights();
+
+        const pos = getEventPosition(canvas, e);
+        const clickPoint = { x: pos.x, y: pos.y };
+
+        // Convert click coordinates to PDF coordinates
+        const pt = currentViewport.convertToPdfPoint(clickPoint.x, clickPoint.y);
+
+        // Find the closest text item to the click
+        let closestItem = null;
+        let minDistance = Infinity;
+
+        currentPageTextContent.items.forEach(item => {
+            const tx = pdfjsLib.Util.transform(currentViewport.transform, item.transform);
+            const itemRect = {
+                left: tx[4],
+                top: tx[5] - item.height * currentViewport.scale,
+                right: tx[4] + item.width * currentViewport.scale,
+                bottom: tx[5]
+            };
+            // Check if click is inside the item's bounding box
+            if (clickPoint.x >= itemRect.left && clickPoint.x <= itemRect.right &&
+                clickPoint.y >= itemRect.top && clickPoint.y <= itemRect.bottom) {
+                closestItem = item;
+                minDistance = 0; // Perfect match
+            }
+        });
+
+        if (!closestItem) return;
+
+        // Heuristics to find the paragraph
+        const lineTolerance = closestItem.height * 0.5; // Tolerance for items on the same line
+        const paragraphBreakTolerance = closestItem.height * 1.5; // Larger vertical gap indicates a new paragraph
+
+        // Group items by line
+        const lines = [];
+        let currentLine = [];
+        let lastY = -1;
+
+        currentPageTextContent.items.sort((a, b) => a.transform[5] - b.transform[5] || a.transform[4] - b.transform[4]);
+
+        currentPageTextContent.items.forEach(item => {
+            if (lastY === -1 || Math.abs(item.transform[5] - lastY) < lineTolerance) {
+                currentLine.push(item);
+            } else {
+                lines.push(currentLine.sort((a, b) => a.transform[4] - b.transform[4]));
+                currentLine = [item];
+            }
+            lastY = item.transform[5];
+        });
+        lines.push(currentLine.sort((a, b) => a.transform[4] - b.transform[4]));
+
+        // Find the line containing the clicked item
+        let clickedLineIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(closestItem)) {
+                clickedLineIndex = i;
+                break;
+            }
+        }
+
+        if (clickedLineIndex === -1) return;
+
+        // Expand up and down to find paragraph boundaries
+        let paragraphStartLine = clickedLineIndex;
+        while (paragraphStartLine > 0) {
+            const currentLineY = lines[paragraphStartLine][0].transform[5];
+            const prevLineY = lines[paragraphStartLine - 1][0].transform[5];
+            if (Math.abs(currentLineY - prevLineY) > paragraphBreakTolerance) {
+                break;
+            }
+            paragraphStartLine--;
+        }
+
+        let paragraphEndLine = clickedLineIndex;
+        while (paragraphEndLine < lines.length - 1) {
+            const currentLineY = lines[paragraphEndLine][0].transform[5];
+            const nextLineY = lines[paragraphEndLine + 1][0].transform[5];
+            if (Math.abs(nextLineY - currentLineY) > paragraphBreakTolerance) {
+                break;
+            }
+            paragraphEndLine++;
+        }
+
+        // Collect all items in the paragraph
+        const paragraphItems = [];
+        for (let i = paragraphStartLine; i <= paragraphEndLine; i++) {
+            paragraphItems.push(...lines[i]);
+        }
+
+        // Create highlight boxes and get text
+        let paragraphText = '';
+        for (let i = paragraphStartLine; i <= paragraphEndLine; i++) {
+            const line = lines[i];
+            if (line.length === 0) continue;
+
+            const firstItem = line[0];
+            const lastItem = line[line.length - 1];
+
+            const txFirst = pdfjsLib.Util.transform(currentViewport.transform, firstItem.transform);
+            const txLast = pdfjsLib.Util.transform(currentViewport.transform, lastItem.transform);
+
+            const highlight = document.createElement('div');
+            highlight.className = 'paragraph-highlight';
+            highlight.style.left = `${txFirst[4]}px`;
+            highlight.style.top = `${txFirst[5] - firstItem.height * currentViewport.scale}px`;
+            highlight.style.width = `${(txLast[4] + lastItem.width * currentViewport.scale) - txFirst[4]}px`;
+            highlight.style.height = `${firstItem.height * currentViewport.scale}px`;
+            pdfContainer.appendChild(highlight);
+
+            paragraphText += line.map(item => item.str).join('') + '\n';
+        }
+
+        // Add copy button
+        const lastLineOfParagraph = lines[paragraphEndLine];
+        if (lastLineOfParagraph.length > 0) {
+            const lastItemOfParagraph = lastLineOfParagraph[lastLineOfParagraph.length - 1];
+            const tx = pdfjsLib.Util.transform(currentViewport.transform, lastItemOfParagraph.transform);
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.id = 'copy-paragraph-btn';
+            copyBtn.textContent = 'Copy';
+            copyBtn.style.left = `${tx[4] + lastItemOfParagraph.width * currentViewport.scale + 5}px`;
+            copyBtn.style.top = `${tx[5] - lastItemOfParagraph.height * currentViewport.scale}px`;
+            
+            copyBtn.onclick = async () => {
+                try {
+                    await navigator.clipboard.writeText(paragraphText.trim());
+                    showFeedback('Paragraph copied!');
+                    clearParagraphHighlights();
+                } catch (err) {
+                    showFeedback('Failed to copy.');
+                    console.error('Copy failed:', err);
+                }
+            };
+            pdfContainer.appendChild(copyBtn);
+        }
+    }
+
+    if (pdfContainer) {
+        pdfContainer.addEventListener('click', handleParagraphSelection);
+    }
+
 
     initLocalMagnifier();
     updatePageControls();
@@ -1180,13 +1109,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await initDB();
             const storedFiles = await getFiles();
-
             if (storedFiles.length > 0) {
                 const restoreContainer = document.getElementById('restore-session-container');
                 const restoreBtn = document.getElementById('restore-session-btn');
-                
                 if(restoreContainer) restoreContainer.style.display = 'block';
-                
                 if(restoreBtn) {
                     restoreBtn.onclick = async () => {
                         await loadAndProcessFiles(storedFiles);
@@ -1200,5 +1126,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     initializeApp();
-
 });
