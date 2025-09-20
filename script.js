@@ -38,9 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const goToPageBtn = document.getElementById('go-to-page-btn');
     const pageSlider = document.getElementById('page-slider');
     
-    // --- MODIFIED: Select both dropdowns ---
-    const resultsDropdown = document.getElementById('resultsDropdown'); // For mobile bottom bar
-    const panelResultsDropdown = document.getElementById('panelResultsDropdown'); // For desktop side panel
+    const resultsDropdown = document.getElementById('resultsDropdown');
+    const panelResultsDropdown = document.getElementById('panelResultsDropdown');
 
     const exportPageBtn = document.getElementById('export-page-btn');
     const sharePageBtn = document.getElementById('share-page-btn');
@@ -98,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
         searchResults = [];
         currentZoomMode = 'height';
 
-        // --- MODIFIED: Clear both dropdowns ---
         if (resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
         if (panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
         if (resultsList) resultsList.innerHTML = '';
@@ -167,211 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ... (The rest of the functions like getDocAndLocalPage, initLocalMagnifier, etc. remain unchanged) ...
-    // ... (No changes needed until searchKeyword function) ...
-    
-    // --- MODIFIED: searchKeyword now populates both dropdowns ---
-    function searchKeyword() {
-        const input = searchInputElem.value.trim();
-        searchResults = [];
-        // Clear all result displays
-        if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Searching...</option>';
-        if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Searching...</option>';
-        if(resultsList) resultsList.innerHTML = 'Searching, please wait...';
-        updateResultsNav();
-
-        if (pdfDocs.length === 0 || !input) {
-            if (pdfDocs.length > 0) renderPage(currentPage, null);
-            if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
-            if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
-            if(resultsList) resultsList.innerHTML = '';
-            updateResultsNav();
-            return;
-        }
-
-        let pattern;
-        try {
-            if (input.startsWith('/') && input.lastIndexOf('/') > 0) {
-                const lastSlashIndex = input.lastIndexOf('/');
-                pattern = new RegExp(input.slice(1, lastSlashIndex), input.slice(lastSlashIndex + 1));
-            } else {
-                const escapedInput = input.replace(/[/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const keywords = escapedInput.split(/\s+/).filter(k => k.length > 0);
-                if (keywords.length === 0) {
-                    if (pdfDocs.length > 0) renderPage(currentPage, null);
-                    if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
-                    if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
-                    if(resultsList) resultsList.innerHTML = '';
-                    updateResultsNav();
-                    return;
-                }
-                pattern = new RegExp(keywords.join('.*?'), 'gi');
-            }
-        } catch (e) {
-            alert('Invalid regular expression: ' + e.message);
-            if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
-            if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
-            if(resultsList) resultsList.innerHTML = '';
-            updateResultsNav();
-            return;
-        }
-
-        let promises = [];
-        let globalPageOffset = 0;
-
-        pdfDocs.forEach((doc, docIndex) => {
-            for (let i = 1; i <= doc.numPages; i++) {
-                const currentGlobalPageForSearch = globalPageOffset + i;
-                const pageInfo = pageMap[currentGlobalPageForSearch - 1];
-                
-                promises.push(
-                    doc.getPage(i).then(p => p.getTextContent().then(textContent => {
-                        const pageText = textContent.items.map(item => item.str).join('');
-                        pattern.lastIndex = 0;
-                        if (pattern.test(pageText)) {
-                            pattern.lastIndex = 0;
-                            const matchResult = pattern.exec(pageText);
-                            let foundMatchSummary = 'Match found';
-                            if (matchResult) {
-                                const matchedText = matchResult[0];
-                                const matchIndex = matchResult.index;
-                                const contextLength = 40;
-                                const startIndex = Math.max(0, matchIndex - contextLength);
-                                const endIndex = Math.min(pageText.length, matchIndex + matchedText.length + contextLength);
-                                const preMatch = pageText.substring(startIndex, matchIndex).replace(/\n/g, ' ');
-                                const highlightedMatch = matchedText.replace(/\n/g, ' ');
-                                const postMatch = pageText.substring(matchIndex + matchedText.length, endIndex).replace(/\n/g, ' ');
-                                foundMatchSummary = `${startIndex > 0 ? '... ' : ''}${preMatch}<span class="wavy-underline">${highlightedMatch}</span>${postMatch}${endIndex < pageText.length ? ' ...' : ''}`;
-                            }
-                            return { page: currentGlobalPageForSearch, summary: foundMatchSummary, docName: pageInfo.docName, docIndex: pageInfo.docIndex, localPage: pageInfo.localPage };
-                        }
-                        return null;
-                    })).catch(err => {
-                        console.warn(`Error processing page for search: Doc ${pageInfo.docName}, Page ${i}`, err);
-                        return null;
-                    })
-                );
-            }
-            globalPageOffset += doc.numPages;
-        });
-
-        Promise.all(promises).then((allPageResults) => {
-            searchResults = allPageResults.filter(r => r !== null).sort((a, b) => a.page - b.page);
-            
-            // Clear all result displays
-            if(resultsDropdown) resultsDropdown.innerHTML = '';
-            if(panelResultsDropdown) panelResultsDropdown.innerHTML = '';
-            if(resultsList) resultsList.innerHTML = '';
-
-            if (searchResults.length === 0) {
-                const notFoundMsg = '<option>Keyword not found</option>';
-                if(resultsDropdown) resultsDropdown.innerHTML = notFoundMsg;
-                if(panelResultsDropdown) panelResultsDropdown.innerHTML = notFoundMsg;
-                if(resultsList) resultsList.innerHTML = '<p style="padding: 10px;">Keyword not found.</p>';
-                renderPage(currentPage, null);
-            } else {
-                searchResults.forEach(result => {
-                    // Create the option element once
-                    const option = document.createElement('option');
-                    option.value = result.page;
-                    option.innerHTML = `Page ${result.page}: ${result.summary}`;
-                    
-                    // Append to both dropdowns (clone for the second one)
-                    if(resultsDropdown) resultsDropdown.appendChild(option);
-                    if(panelResultsDropdown) panelResultsDropdown.appendChild(option.cloneNode(true));
-
-                    // Populate desktop side panel thumbnail list
-                    const resultItem = document.createElement('div');
-                    resultItem.className = 'result-item';
-                    resultItem.innerHTML = `<canvas class="thumbnail-canvas"></canvas><div class="page-info">Page ${result.page} (File: ${result.docName})</div><div class="context-snippet">${result.summary}</div>`;
-                    resultItem.addEventListener('click', () => goToPage(result.page, pattern));
-                    if(resultsList) resultsList.appendChild(resultItem);
-                    
-                    const thumbnailCanvas = resultItem.querySelector('.thumbnail-canvas');
-                    renderThumbnail(result.docIndex, result.localPage, thumbnailCanvas);
-                });
-
-                if (searchResults.length > 0) {
-                    goToPage(searchResults[0].page, pattern);
-                }
-            }
-            updateResultsNav();
-
-            if (window.innerWidth <= 768 && appContainer.classList.contains('menu-active')) {
-                appContainer.classList.remove('menu-active');
-            }
-        }).catch(err => {
-            console.error('An unexpected error occurred during search:', err);
-            const errorMsg = '<option value="">Search Error</option>';
-            if(resultsDropdown) resultsDropdown.innerHTML = errorMsg;
-            if(panelResultsDropdown) panelResultsDropdown.innerHTML = errorMsg;
-            if(resultsList) resultsList.innerHTML = '<p style="padding: 10px;">An error occurred during search.</p>';
-            renderPage(currentPage, null);
-            updateResultsNav();
-        });
-    }
-
-    // --- MODIFIED: Add event listener for the new panel dropdown ---
-    if (resultsDropdown) {
-        resultsDropdown.addEventListener('change', () => goToPageDropdown(resultsDropdown.value));
-    }
-    if (panelResultsDropdown) {
-        panelResultsDropdown.addEventListener('change', () => goToPageDropdown(panelResultsDropdown.value));
-    }
-
-    function goToPageDropdown(pageNumStr) {
-        if (pageNumStr) {
-            const pageNum = parseInt(pageNumStr);
-            goToPage(pageNum, getPatternFromSearchInput());
-        }
-    }
-
-    // --- MODIFIED: goToPage now updates both dropdowns ---
-    function goToPage(globalPageNum, highlightPatternForPage = null) {
-        if (pdfDocs.length === 0 || isNaN(globalPageNum)) return;
-        const n = Math.max(1, Math.min(globalPageNum, globalTotalPages));
-        const currentGlobalPattern = getPatternFromSearchInput();
-        if (pageRendering && currentPage === n && JSON.stringify(highlightPatternForPage) === JSON.stringify(currentGlobalPattern)) return;
-        if (pageRendering && !(currentPage === n && JSON.stringify(highlightPatternForPage) !== JSON.stringify(currentGlobalPattern))) return;
-        
-        currentPage = n;
-        const finalHighlightPattern = highlightPatternForPage !== null ? highlightPatternForPage : currentGlobalPattern;
-        renderPage(currentPage, finalHighlightPattern);
-        
-        // Update all navigation controls
-        if (pageToGoInput) pageToGoInput.value = currentPage;
-        if (pageSlider) pageSlider.value = currentPage;
-        if (resultsDropdown) resultsDropdown.value = currentPage;
-        if (panelResultsDropdown) panelResultsDropdown.value = currentPage;
-    }
-
-    // --- The rest of the script remains the same ---
-    // Copy and paste the remaining functions from your previous script.js file here.
-    // This includes:
-    // - getPatternFromSearchInput
-    // - All event listeners for page navigation buttons (goToFirstPageBtn, etc.)
-    // - exportPageBtn listener
-    // - All mode toggle listeners (toggleUnderlineBtn, deactivateAllModes, etc.)
-    // - copyPageTextBtn listener
-    // - sharePageBtn listener
-    // - Magnifier logic (handlePointerMoveForLocalMagnifier, etc.)
-    // - resize listener
-    // - Zoom control listeners (fitWidthBtn, etc.)
-    // - navigateToNextResult / navigateToPreviousResult
-    // - showFeedback
-    // - Swipe gesture logic
-    // - Paragraph selection logic (clearParagraphHighlights, handleParagraphSelection)
-    // - initializeApp
-    // Make sure to copy everything from getPatternFromSearchInput down to the final initializeApp(); call.
-    // For brevity, I am omitting them here, but they are required for the app to function.
-    // The only changes needed were in the functions modified above.
-    
-    // --- PASTE THE REST OF YOUR SCRIPT.JS HERE ---
-    // For your convenience, here is the full script again with all parts included.
-    // Please replace your entire script.js with this full version.
-    
-    // [Full script from this point]
-    
     document.getElementById('fileInput').addEventListener('change', async function(e) {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
@@ -696,6 +489,142 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- CORRECTED searchKeyword function ---
+    function searchKeyword() {
+        const input = searchInputElem.value.trim();
+        searchResults = [];
+        if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Searching...</option>';
+        if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Searching...</option>';
+        if(resultsList) resultsList.innerHTML = 'Searching, please wait...';
+        updateResultsNav();
+
+        if (pdfDocs.length === 0 || !input) {
+            if (pdfDocs.length > 0) renderPage(currentPage, null);
+            if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
+            if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
+            if(resultsList) resultsList.innerHTML = '';
+            updateResultsNav();
+            return;
+        }
+
+        let pattern;
+        try {
+            if (input.startsWith('/') && input.lastIndexOf('/') > 0) {
+                const lastSlashIndex = input.lastIndexOf('/');
+                pattern = new RegExp(input.slice(1, lastSlashIndex), input.slice(lastSlashIndex + 1));
+            } else {
+                const escapedInput = input.replace(/[/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const keywords = escapedInput.split(/\s+/).filter(k => k.length > 0);
+                if (keywords.length === 0) {
+                    if (pdfDocs.length > 0) renderPage(currentPage, null);
+                    if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
+                    if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
+                    if(resultsList) resultsList.innerHTML = '';
+                    updateResultsNav();
+                    return;
+                }
+                pattern = new RegExp(keywords.join('.*?'), 'gi');
+            }
+        } catch (e) {
+            alert('Invalid regular expression: ' + e.message);
+            if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
+            if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
+            if(resultsList) resultsList.innerHTML = '';
+            updateResultsNav();
+            return;
+        }
+
+        let promises = [];
+        let globalPageOffset = 0;
+
+        pdfDocs.forEach((doc, docIndex) => {
+            for (let i = 1; i <= doc.numPages; i++) {
+                const currentGlobalPageForSearch = globalPageOffset + i;
+                const pageInfo = pageMap[currentGlobalPageForSearch - 1];
+                
+                promises.push(
+                    doc.getPage(i).then(p => p.getTextContent().then(textContent => {
+                        const pageText = textContent.items.map(item => item.str).join('');
+                        pattern.lastIndex = 0;
+                        if (pattern.test(pageText)) {
+                            pattern.lastIndex = 0;
+                            const matchResult = pattern.exec(pageText);
+                            let foundMatchSummary = 'Match found';
+                            if (matchResult) {
+                                const matchedText = matchResult[0];
+                                const matchIndex = matchResult.index;
+                                const contextLength = 40;
+                                const startIndex = Math.max(0, matchIndex - contextLength);
+                                const endIndex = Math.min(pageText.length, matchIndex + matchedText.length + contextLength);
+                                const preMatch = pageText.substring(startIndex, matchIndex).replace(/\n/g, ' ');
+                                const highlightedMatch = matchedText.replace(/\n/g, ' ');
+                                const postMatch = pageText.substring(matchIndex + matchedText.length, endIndex).replace(/\n/g, ' ');
+                                foundMatchSummary = `${startIndex > 0 ? '... ' : ''}${preMatch}<span class="wavy-underline">${highlightedMatch}</span>${postMatch}${endIndex < pageText.length ? ' ...' : ''}`;
+                            }
+                            return { page: currentGlobalPageForSearch, summary: foundMatchSummary, docName: pageInfo.docName, docIndex: pageInfo.docIndex, localPage: pageInfo.localPage };
+                        }
+                        return null;
+                    })).catch(err => {
+                        console.warn(`Error processing page for search: Doc ${pageInfo.docName}, Page ${i}`, err);
+                        return null;
+                    })
+                );
+            }
+            globalPageOffset += doc.numPages;
+        });
+
+        Promise.all(promises).then((allPageResults) => {
+            searchResults = allPageResults.filter(r => r !== null).sort((a, b) => a.page - b.page);
+            
+            if(resultsDropdown) resultsDropdown.innerHTML = '';
+            if(panelResultsDropdown) panelResultsDropdown.innerHTML = '';
+            if(resultsList) resultsList.innerHTML = '';
+
+            if (searchResults.length === 0) {
+                const notFoundMsg = '<option>Keyword not found</option>';
+                if(resultsDropdown) resultsDropdown.innerHTML = notFoundMsg;
+                if(panelResultsDropdown) panelResultsDropdown.innerHTML = notFoundMsg;
+                if(resultsList) resultsList.innerHTML = '<p style="padding: 10px;">Keyword not found.</p>';
+                renderPage(currentPage, null);
+            } else {
+                searchResults.forEach(result => {
+                    const option = document.createElement('option');
+                    option.value = result.page;
+                    option.innerHTML = `Page ${result.page}: ${result.summary}`;
+                    
+                    if(resultsDropdown) resultsDropdown.appendChild(option.cloneNode(true));
+                    if(panelResultsDropdown) panelResultsDropdown.appendChild(option.cloneNode(true));
+
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'result-item';
+                    resultItem.innerHTML = `<canvas class="thumbnail-canvas"></canvas><div class="page-info">Page ${result.page} (File: ${result.docName})</div><div class="context-snippet">${result.summary}</div>`;
+                    resultItem.addEventListener('click', () => goToPage(result.page, pattern));
+                    if(resultsList) resultsList.appendChild(resultItem);
+                    
+                    const thumbnailCanvas = resultItem.querySelector('.thumbnail-canvas');
+                    renderThumbnail(result.docIndex, result.localPage, thumbnailCanvas);
+                });
+
+                if (searchResults.length > 0) {
+                    goToPage(searchResults[0].page, pattern);
+                }
+            }
+            updateResultsNav();
+
+            if (window.innerWidth <= 768 && appContainer.classList.contains('menu-active')) {
+                appContainer.classList.remove('menu-active');
+            }
+        }).catch(err => {
+            console.error('An unexpected error occurred during search:', err);
+            const errorMsg = '<option value="">Search Error</option>';
+            if(resultsDropdown) resultsDropdown.innerHTML = errorMsg;
+            if(panelResultsDropdown) panelResultsDropdown.innerHTML = errorMsg;
+            if(resultsList) resultsList.innerHTML = '<p style="padding: 10px;">An error occurred during search.</p>';
+            renderPage(currentPage, null);
+            updateResultsNav();
+        });
+    }
+
     function updateResultsNav() {
         const hasResults = searchResults.length > 0;
         document.body.classList.toggle('results-bar-visible', hasResults);
@@ -705,6 +634,37 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchActionButton) searchActionButton.addEventListener('click', searchKeyword);
     if (searchInputElem) searchInputElem.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchActionButton.click(); } });
     
+    if (resultsDropdown) {
+        resultsDropdown.addEventListener('change', () => goToPageDropdown(resultsDropdown.value));
+    }
+    if (panelResultsDropdown) {
+        panelResultsDropdown.addEventListener('change', () => goToPageDropdown(panelResultsDropdown.value));
+    }
+
+    function goToPageDropdown(pageNumStr) {
+        if (pageNumStr) {
+            const pageNum = parseInt(pageNumStr);
+            goToPage(pageNum, getPatternFromSearchInput());
+        }
+    }
+
+    function goToPage(globalPageNum, highlightPatternForPage = null) {
+        if (pdfDocs.length === 0 || isNaN(globalPageNum)) return;
+        const n = Math.max(1, Math.min(globalPageNum, globalTotalPages));
+        const currentGlobalPattern = getPatternFromSearchInput();
+        if (pageRendering && currentPage === n && JSON.stringify(highlightPatternForPage) === JSON.stringify(currentGlobalPattern)) return;
+        if (pageRendering && !(currentPage === n && JSON.stringify(highlightPatternForPage) !== JSON.stringify(currentGlobalPattern))) return;
+        
+        currentPage = n;
+        const finalHighlightPattern = highlightPatternForPage !== null ? highlightPatternForPage : currentGlobalPattern;
+        renderPage(currentPage, finalHighlightPattern);
+        
+        if (pageToGoInput) pageToGoInput.value = currentPage;
+        if (pageSlider) pageSlider.value = currentPage;
+        if (resultsDropdown) resultsDropdown.value = currentPage;
+        if (panelResultsDropdown) panelResultsDropdown.value = currentPage;
+    }
+
     function getPatternFromSearchInput() {
         const i = searchInputElem ? searchInputElem.value.trim() : null;
         if (!i) return null;
