@@ -85,7 +85,6 @@
       flex-shrink: 0; /* Prevent shrinking */
     }
 
-    /* --- NEW: Container for the dropdown inside the panel --- */
     #panel-dropdown-container {
         padding: 10px;
         border-bottom: 1px solid #ccc;
@@ -100,14 +99,12 @@
         font-size: 1em;
     }
 
-    /* --- MODIFIED: Make results list scrollable and fill remaining space --- */
     #results-list {
       padding: 10px;
       flex-grow: 1; /* Fill available space */
       overflow-y: auto; /* Enable scrolling */
     }
 
-    /* --- Styles for individual result items in the side panel --- */
     .result-item {
       margin-bottom: 15px;
       padding: 10px;
@@ -146,6 +143,12 @@
       background-color: rgba(244, 164, 96, 0.2);
       border-radius: 2px;
       padding: 0 2px;
+    }
+
+    /* --- THIS IS THE FIX --- */
+    /* Ensure the mobile toggle tab is hidden by default on larger screens */
+    #toolbar-toggle-tab {
+        display: none;
     }
 
     #toolbar {
@@ -744,7 +747,6 @@
         <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
         <button id="fit-width-btn" title="Fit to Page Width">Fit Width</button>
         <button id="zoom-in-btn" title="Zoom In">+</button>
-        <!-- MODIFIED: Removed title attribute -->
         <span id="zoom-level-display">100%</span>
       </div>
 
