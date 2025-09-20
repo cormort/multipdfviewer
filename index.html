@@ -145,8 +145,6 @@
       padding: 0 2px;
     }
 
-    /* --- THIS IS THE FIX --- */
-    /* Ensure the mobile toggle tab is hidden by default on larger screens */
     #toolbar-toggle-tab {
         display: none;
     }
@@ -482,6 +480,18 @@
     }
 
     /* --- Responsive Logic --- */
+    @media (max-width: 1380px) {
+        #go-to-first-page {
+            display: none;
+        }
+        #page-slider {
+            min-width: 60px;
+        }
+        #toolbar input[type="text"] {
+            min-width: 100px;
+        }
+    }
+
     @media (max-width: 1200px) {
         #toolbar label[for="fileInput"] {
             display: none;
