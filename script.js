@@ -592,6 +592,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     option.value = result.page;
                     option.innerHTML = `Page ${result.page}: ${result.summary}`;
                     
+                    // --- THIS IS THE FIX ---
+                    // Append a CLONE of the option to each dropdown
                     if(resultsDropdown) resultsDropdown.appendChild(option.cloneNode(true));
                     if(panelResultsDropdown) panelResultsDropdown.appendChild(option.cloneNode(true));
 
