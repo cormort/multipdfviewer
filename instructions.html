@@ -117,28 +117,40 @@
         </div>
 
         <h3>Q3: How do I open/close the function menu on a mobile device?</h3>
-        <p>On touch devices like phones or tablets, you will see an orange arrow handle <span class="key" style="background-color: #ff9a15; color: white; border-color: #ff9a15;">›</span> on the left side. Tap this handle to slide the function menu in or out. You can also quickly collapse the menu by tapping on the PDF content area on the right. When first opened on a mobile device, the menu defaults to expanded for your convenience.</p>
+        <p>On touch devices like phones or tablets, you will see an orange arrow handle <span class="key" style="background-color: #ff9a15; color: white; border-color: #ff9a15;">›</span> on the left side. Tap this handle to slide the function menu in or out. You can also quickly collapse the menu by tapping on the PDF content area on the right.</p>
 
         <h3>Q4: How do I search across multiple PDF files?</h3>
         <ol>
             <li>Enter your keywords in the "Keyword or Regex" input box. You can separate multiple keywords with a space, e.g., <code>company report</code>.</li>
             <li>Click the <span class="key">Search</span> button.</li>
-            <li>Once the search is complete, a "Search Results" dropdown menu will appear at the bottom of the screen, listing all pages that contain the keywords.</li>
-            <li>Results in the menu are grouped by file and separated by a title like <code>--- Results from [filename] ---</code>, so you can clearly identify the source of each result.</li>
+            <li>
+                Once the search is complete, the results will be displayed based on your device:
+                <ul>
+                    <li><strong>On Desktop:</strong> A "<strong>Bookmarks / Search Results</strong>" panel will appear on the right. This panel displays thumbnails, page numbers, and context snippets for all matching pages, acting like a set of temporary bookmarks for your search.</li>
+                    <li><strong>On Mobile/Tablet:</strong> A "Search Results" dropdown menu will appear at the bottom of the screen, listing all matching pages.</li>
+                </ul>
+            </li>
+            <li>Click any result to jump directly to that page.</li>
         </ol>
         <div class="note">
             <strong>Advanced Search Tip:</strong> You can use regular expressions for more powerful searches. Simply enclose your expression in slashes. For example, <code>/Chapter \d+/i</code> will perform a case-insensitive search for "Chapter" followed by one or more digits.
         </div>
         
-        <h3>Q5: On a computer, how can I see which file a search result came from?</h3>
-        <p>Hover your mouse pointer over an option in the "Search Results" dropdown menu at the bottom. A tooltip will appear, displaying the original filename for that result.</p>
-        
-        <h3>Q6: How do I navigate between pages?</h3>
+        <h3>Q5: How do I navigate pages and search results?</h3>
         <ul>
             <li>Use the <span class="key">Prev</span> / <span class="key">Next</span> buttons to go through pages one by one.</li>
             <li>Drag the **slider** next to the page number for quick navigation.</li>
             <li>Enter a page number in the input box and click the <span class="key">Go</span> button to jump directly to a specific global page number.</li>
-            <li><b>(Recommended)</b> On touch devices, simply **swipe left or right** on the PDF to turn pages for a smoother experience.</li>
+            <li>In search mode, click a thumbnail in the right-side panel or an item in the dropdown menu to jump to that specific result.</li>
+            <li><b>(Recommended)</b> On touch devices, simply **swipe left or right** on the PDF to turn pages or to navigate to the previous/next search result.</li>
+        </ul>
+
+        <h3>Q6: How do I adjust the page zoom level?</h3>
+        <p>In the top toolbar, you can use the zoom controls:</p>
+        <ul>
+            <li><span class="key">Fit Height</span>: (Default mode) Fits the page's height to the viewer's height, ideal for vertical reading.</li>
+            <li><span class="key">Fit Width</span>: Fits the page's width to the viewer's width.</li>
+            <li><span class="key">+</span> / <span class="key">-</span>: Manually zoom in or out.</li>
         </ul>
 
         <h2>📱 Mobile Device Experience</h2>
@@ -148,7 +160,7 @@
             <li><b>Normal Mode:</b> When you are not in search mode, swiping left or right will take you to the previous or next page.</li>
             <li><b>Search Mode:</b> After you have performed a search, swiping left or right will jump directly to the page containing the **previous or next search result**, allowing you to quickly browse through all matches.</li>
             <li>When you reach the first or last search result, a brief notification, "Already at the first/last result," will be displayed.</li>
-            <li><div class="note" style="padding: 10px; margin-top: 10px;">Note: To avoid conflicts, the swipe-to-navigate feature is temporarily disabled when the highlighter, text selection, or magnifier tools are active.</div></li>
+            <li><div class="note" style="padding: 10px; margin-top: 10px;">Note: To avoid conflicts, the swipe-to-navigate feature is temporarily disabled when the highlighter, text selection, paragraph selection, or magnifier tools are active.</div></li>
         </ul>
         
         <h2>🎨 Markup and View Functions (Floating buttons in the bottom-right corner)</h2>
@@ -157,7 +169,9 @@
         <p>This is a set of quick action buttons for easy access to various tools while you read.</p>
         <ul>
             <li><span class="key">S</span>: <strong>Toggle Search Underlines</strong>. If you find the wavy underlines for search results distracting, click this button to temporarily hide them. Click it again to show them.</li>
-            <li><span class="key">TS</span>: <strong>Enable Text Selection</strong>. By default, text selection is disabled to allow for smoother pinch-to-zoom and swipe gestures. Click this button to make the PDF content selectable, allowing you to copy text. Click it again to disable.</li>
+            <li><span class="key">¶</span>: <strong>Enable Paragraph Selection</strong>. Once enabled, simply click anywhere within a paragraph on the PDF. The tool will automatically select the entire paragraph and show a "Copy" button, allowing for quick and accurate copying.</li>
+            <li><span class="key">📝</span>: <strong>Copy Page Text</strong>. Copies all text from the current page to your clipboard.</li>
+            <li><span class="key">TS</span>: <strong>Enable Text Selection</strong>. By default, text selection is disabled to allow for smoother pinch-to-zoom and swipe gestures. Click this button to make the PDF content selectable, allowing you to copy specific text. Click it again to disable.</li>
             <li><span class="key">🖌️</span>: <strong>Enable Highlighter</strong>. After clicking, you can freely draw on the PDF page, just like using a real highlighter.</li>
             <li><span class="key">🗑️</span>: <strong>Clear Highlights</strong>. Erases all highlighter marks from the current page.</li>
             <li><span class="key">🔍</span>: <strong>Toggle Magnifier</strong>. When enabled, move your mouse (on a computer) or drag your finger (on a mobile device) to see a real-time magnified view.</li>
@@ -165,12 +179,7 @@
             <li><span class="key">🔗</span>: <strong>Share Page</strong>. If your browser supports it, this allows you to share the current page (with highlights) as an image to other applications.</li>
         </ul>
 
-        <h2>⚙️ Other Settings</h2>
-        
-        <h3>Q9: How can I adjust the display quality?</h3>
-        <p>In the function menu, you can choose between "Standard," "High," and "Highest" quality settings. Higher quality results in sharper text and images but may render slightly slower and consume more device resources. The default is "High," which provides a good balance on most devices.</p>
-        
-        <h3>Q10: How do I adjust the magnifier's zoom level?</h3>
+        <h3>Q9: How do I adjust the magnifier's zoom level?</h3>
         <p>When the magnifier tool <span class="key">🔍</span> is enabled, a "Magnifier Zoom" option will appear in the function menu. You can select a zoom level from 1.5x to 3.5x.</p>
 
         <a href="./index.html" class="back-link">Back to the PDF Searcher</a>
