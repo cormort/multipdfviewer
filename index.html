@@ -67,7 +67,6 @@
       flex-shrink: 0;
       background-color: #f1f3f5;
       border-left: 1px solid #dee2e6;
-      overflow-y: auto;
       box-sizing: border-box;
     }
 
@@ -83,13 +82,29 @@
       font-size: 1.1em;
       color: #333;
       background-color: #f8f9fa;
-      position: sticky;
-      top: 0;
-      z-index: 1;
+      flex-shrink: 0; /* Prevent shrinking */
     }
 
+    /* --- NEW: Container for the dropdown inside the panel --- */
+    #panel-dropdown-container {
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        background-color: #f8f9fa;
+        flex-shrink: 0; /* Prevent shrinking */
+    }
+    #panelResultsDropdown {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 1em;
+    }
+
+    /* --- MODIFIED: Make results list scrollable and fill remaining space --- */
     #results-list {
       padding: 10px;
+      flex-grow: 1; /* Fill available space */
+      overflow-y: auto; /* Enable scrolling */
     }
 
     /* --- Styles for individual result items in the side panel --- */
@@ -133,26 +148,6 @@
       padding: 0 2px;
     }
 
-
-    #toolbar-toggle {
-      display: none;
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 1003;
-      pointer-events: auto;
-      background-color: #f0f0f0;
-      border: 1px solid #ccc;
-      padding: 8px 12px;
-      cursor: pointer;
-      font-size: 1.2em;
-      border-radius: 4px;
-    }
-    
-    #toolbar-toggle-tab {
-        display: none;
-    }
-
     #toolbar {
       padding: 10px;
       background-color: #f8f9fa;
@@ -162,6 +157,7 @@
       gap: 10px;
       align-items: center;
       flex-shrink: 0;
+      overflow: hidden;
     }
     #toolbar .title-container {
       display: flex;
@@ -180,7 +176,9 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    },
+      flex-shrink: 1;
+      min-width: 100px;
+    }
     #toolbar input[type="text"],
     #toolbar input[type="number"],
     #toolbar select,
@@ -193,7 +191,8 @@
       color: initial;
     }
     #toolbar input[type="text"] {
-      width: 150px;
+      flex: 1 1 150px;
+      min-width: 120px;
       background-color: initial;
       border-color: initial;
       color: initial;
@@ -214,12 +213,12 @@
       background-color: initial;
       color: initial;
       border-color: initial;
+      flex-shrink: 0;
     }
     #toolbar button:hover {
       background-color: initial;
     }
 
-    /* --- Styles for Zoom Controls --- */
     #zoom-controls {
       display: flex;
       align-items: center;
@@ -227,6 +226,7 @@
       border-left: 1px solid #ccc;
       padding-left: 10px;
       margin-left: 10px;
+      flex-shrink: 0;
     }
     #zoom-controls button {
       min-width: 38px;
@@ -264,6 +264,7 @@
       align-items: center;
       gap: 5px;
       margin-left: auto;
+      flex-shrink: 0;
     }
     #page-navigation button {
       padding: 8px;
@@ -300,7 +301,6 @@
       pointer-events: none;
     }
 
-    /* --- Styles for paragraph selection --- */
     #pdf-container.paragraph-selection-mode {
         cursor: pointer;
     }
@@ -366,7 +366,7 @@
     .highlights-hidden .wavy-underline {
       text-decoration: none !important;
     }
-    #resultsDropdown .wavy-underline {
+    #resultsDropdown .wavy-underline, #panelResultsDropdown .wavy-underline {
       text-decoration-line: underline !important;
       text-decoration-style: wavy !important;
       text-decoration-color: sandybrown !important;
@@ -438,7 +438,9 @@
       background-color: rgba(100, 0, 100, 0.7);
     }
 
+    /* --- MODIFIED: Bottom bar is now hidden by default --- */
     #bottom-results-bar {
+      display: none; /* Hidden on desktop */
       position: fixed;
       bottom: 0;
       left: 0;
@@ -447,15 +449,11 @@
       border-top: 1px solid #dee2e6;
       padding: 5px 10px;
       box-sizing: border-box;
-      display: none;
       justify-content: center;
       align-items: center;
       gap: 0;
       box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
       z-index: 1002;
-    }
-    body.results-bar-visible #bottom-results-bar {
-      display: flex;
     }
     #bottom-results-bar #result-nav-wrapper {
       display: flex;
@@ -482,16 +480,22 @@
     }
 
     /* --- Responsive Logic --- */
-    @media (min-width: 1025px) {
-      #app-container.results-panel-visible #bottom-results-bar {
-        display: none !important;
-      }
+    @media (max-width: 1200px) {
+        #toolbar label[for="fileInput"] {
+            display: none;
+        }
     }
+
+    /* --- MODIFIED: On mobile/tablet, show the bottom bar and hide the side panel --- */
     @media (max-width: 1024px) {
       #search-results-panel {
         display: none !important;
       }
+      body.results-bar-visible #bottom-results-bar {
+        display: flex; /* Show bottom bar only on smaller screens when results are available */
+      }
     }
+
     @media (max-width: 768px) {
       #toolbar-toggle-tab {
         display: flex;
@@ -779,6 +783,12 @@
         </div>
         <div id="search-results-panel">
             <h3>Bookmarks / Search Results</h3>
+            <!-- NEW: Dropdown moved here -->
+            <div id="panel-dropdown-container">
+                <select id="panelResultsDropdown">
+                    <option value="">Search Results</option>
+                </select>
+            </div>
             <div id="results-list"></div>
         </div>
     </div>
@@ -804,6 +814,7 @@
     </div>
   </div>
 
+<!-- This is now for mobile/tablet view only -->
 <div id="bottom-results-bar">
   <div id="result-nav-wrapper">
     <select id="resultsDropdown">
