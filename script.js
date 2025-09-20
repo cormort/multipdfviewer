@@ -19,10 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentZoomMode = 'height';
     let currentScale = 1.0;
 
-    // --- NEW: State variables for paragraph selection ---
     let paragraphSelectionModeActive = false;
-    let currentPageTextContent = null; // Cache for current page's text items
-    let currentViewport = null; // Cache for current page's viewport
+    let currentPageTextContent = null;
+    let currentViewport = null;
 
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas ? canvas.getContext('2d') : null;
@@ -39,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const goToPageBtn = document.getElementById('go-to-page-btn');
     const pageSlider = document.getElementById('page-slider');
     const resultsDropdown = document.getElementById('resultsDropdown');
-    const qualitySelector = document.getElementById('quality-selector');
     const exportPageBtn = document.getElementById('export-page-btn');
     const sharePageBtn = document.getElementById('share-page-btn');
     const toggleUnderlineBtn = document.getElementById('toggle-underline-btn');
@@ -68,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const fitHeightBtn = document.getElementById('fit-height-btn');
     const zoomLevelDisplay = document.getElementById('zoom-level-display');
 
-    // --- NEW: Paragraph selection button ---
     const toggleParagraphSelectionBtn = document.getElementById('toggle-paragraph-selection-btn');
 
 
@@ -105,11 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showSearchResultsHighlights = true;
         if (textLayerDivGlobal) textLayerDivGlobal.classList.remove('highlights-hidden');
         
-        // Deactivate all modes
-        highlighterEnabled = false;
-        textSelectionModeActive = false;
-        localMagnifierEnabled = false;
-        paragraphSelectionModeActive = false;
+        deactivateAllModes();
 
         if (textLayerDivGlobal) {
             textLayerDivGlobal.classList.remove('text-selection-active');
@@ -323,11 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPage(globalPageNum, highlightPattern = null) {
         if (pdfDocs.length === 0 || !pdfContainer || !canvas || !ctx) return;
         pageRendering = true;
-        currentPageTextContent = null; // Invalidate cache
-        currentViewport = null; // Invalidate cache
+        currentPageTextContent = null;
+        currentViewport = null;
         updatePageControls();
         if (drawingCtx && drawingCanvas) drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-        clearParagraphHighlights(); // Clear highlights on page change
+        clearParagraphHighlights();
 
         const pageInfo = getDocAndLocalPage(globalPageNum);
         if (!pageInfo) {
@@ -358,9 +351,11 @@ document.addEventListener('DOMContentLoaded', () => {
             textLayerDivGlobal.classList.toggle('highlights-hidden', !showSearchResultsHighlights);
 
             const viewportCss = page.getViewport({ scale: scaleForCss });
-            currentViewport = viewportCss; // Cache viewport
+            currentViewport = viewportCss;
             const devicePixelRatio = window.devicePixelRatio || 1;
-            const qualityMultiplier = parseFloat(qualitySelector.value) || 1.5;
+            // --- MODIFIED: Removed qualitySelector, using a fixed value ---
+            const qualityMultiplier = 1.5; // Fixed high quality setting
+
             const renderScale = scaleForCss * devicePixelRatio * qualityMultiplier;
             const viewportRender = page.getViewport({ scale: renderScale });
 
@@ -405,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTextLayer(page, viewport, highlightPattern) {
         if (!textLayerDivGlobal || !pdfjsLib || !pdfjsLib.Util) return Promise.resolve();
         return page.getTextContent().then(function(textContent) {
-            currentPageTextContent = textContent; // Cache text content
+            currentPageTextContent = textContent;
             textLayerDivGlobal.innerHTML = '';
             textContent.items.forEach(function(item) {
                 const textDiv = document.createElement('div');
@@ -683,8 +678,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPage !== newPage) goToPage(newPage, getPatternFromSearchInput());
     });
 
-    if (qualitySelector) qualitySelector.addEventListener('change', () => { if (pdfDocs.length > 0) renderPage(currentPage, getPatternFromSearchInput()); });
-
     if (exportPageBtn) exportPageBtn.addEventListener('click', () => {
         if (pdfDocs.length === 0 || !canvas) { alert('Please load a PDF file first'); return; }
         if (pageRendering) { alert('The page is still rendering, please wait'); return; }
@@ -720,7 +713,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPage(currentPage, getPatternFromSearchInput());
     });
 
-    // --- MODIFIED: All mode toggles now deactivate other modes ---
     function deactivateAllModes(except = null) {
         if (except !== 'highlighter' && highlighterEnabled) {
             highlighterEnabled = false;
@@ -950,7 +942,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfContainer.addEventListener('touchcancel', () => { isSwiping = false; });
     }
 
-    // --- NEW: Paragraph Selection Logic ---
     function clearParagraphHighlights() {
         document.querySelectorAll('.paragraph-highlight, #copy-paragraph-btn').forEach(el => el.remove());
     }
@@ -963,13 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pos = getEventPosition(canvas, e);
         const clickPoint = { x: pos.x, y: pos.y };
 
-        // Convert click coordinates to PDF coordinates
-        const pt = currentViewport.convertToPdfPoint(clickPoint.x, clickPoint.y);
-
-        // Find the closest text item to the click
         let closestItem = null;
-        let minDistance = Infinity;
-
         currentPageTextContent.items.forEach(item => {
             const tx = pdfjsLib.Util.transform(currentViewport.transform, item.transform);
             const itemRect = {
@@ -978,21 +963,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 right: tx[4] + item.width * currentViewport.scale,
                 bottom: tx[5]
             };
-            // Check if click is inside the item's bounding box
             if (clickPoint.x >= itemRect.left && clickPoint.x <= itemRect.right &&
                 clickPoint.y >= itemRect.top && clickPoint.y <= itemRect.bottom) {
                 closestItem = item;
-                minDistance = 0; // Perfect match
             }
         });
 
         if (!closestItem) return;
 
-        // Heuristics to find the paragraph
-        const lineTolerance = closestItem.height * 0.5; // Tolerance for items on the same line
-        const paragraphBreakTolerance = closestItem.height * 1.5; // Larger vertical gap indicates a new paragraph
+        const lineTolerance = closestItem.height * 0.5;
+        const paragraphBreakTolerance = closestItem.height * 1.5;
 
-        // Group items by line
         const lines = [];
         let currentLine = [];
         let lastY = -1;
@@ -1010,25 +991,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         lines.push(currentLine.sort((a, b) => a.transform[4] - b.transform[4]));
 
-        // Find the line containing the clicked item
-        let clickedLineIndex = -1;
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].includes(closestItem)) {
-                clickedLineIndex = i;
-                break;
-            }
-        }
-
+        let clickedLineIndex = lines.findIndex(line => line.includes(closestItem));
         if (clickedLineIndex === -1) return;
 
-        // Expand up and down to find paragraph boundaries
         let paragraphStartLine = clickedLineIndex;
         while (paragraphStartLine > 0) {
             const currentLineY = lines[paragraphStartLine][0].transform[5];
             const prevLineY = lines[paragraphStartLine - 1][0].transform[5];
-            if (Math.abs(currentLineY - prevLineY) > paragraphBreakTolerance) {
-                break;
-            }
+            if (Math.abs(currentLineY - prevLineY) > paragraphBreakTolerance) break;
             paragraphStartLine--;
         }
 
@@ -1036,30 +1006,18 @@ document.addEventListener('DOMContentLoaded', () => {
         while (paragraphEndLine < lines.length - 1) {
             const currentLineY = lines[paragraphEndLine][0].transform[5];
             const nextLineY = lines[paragraphEndLine + 1][0].transform[5];
-            if (Math.abs(nextLineY - currentLineY) > paragraphBreakTolerance) {
-                break;
-            }
+            if (Math.abs(nextLineY - currentLineY) > paragraphBreakTolerance) break;
             paragraphEndLine++;
         }
 
-        // Collect all items in the paragraph
-        const paragraphItems = [];
-        for (let i = paragraphStartLine; i <= paragraphEndLine; i++) {
-            paragraphItems.push(...lines[i]);
-        }
-
-        // Create highlight boxes and get text
         let paragraphText = '';
         for (let i = paragraphStartLine; i <= paragraphEndLine; i++) {
             const line = lines[i];
             if (line.length === 0) continue;
-
             const firstItem = line[0];
             const lastItem = line[line.length - 1];
-
             const txFirst = pdfjsLib.Util.transform(currentViewport.transform, firstItem.transform);
             const txLast = pdfjsLib.Util.transform(currentViewport.transform, lastItem.transform);
-
             const highlight = document.createElement('div');
             highlight.className = 'paragraph-highlight';
             highlight.style.left = `${txFirst[4]}px`;
@@ -1067,22 +1025,18 @@ document.addEventListener('DOMContentLoaded', () => {
             highlight.style.width = `${(txLast[4] + lastItem.width * currentViewport.scale) - txFirst[4]}px`;
             highlight.style.height = `${firstItem.height * currentViewport.scale}px`;
             pdfContainer.appendChild(highlight);
-
             paragraphText += line.map(item => item.str).join('') + '\n';
         }
 
-        // Add copy button
         const lastLineOfParagraph = lines[paragraphEndLine];
         if (lastLineOfParagraph.length > 0) {
             const lastItemOfParagraph = lastLineOfParagraph[lastLineOfParagraph.length - 1];
             const tx = pdfjsLib.Util.transform(currentViewport.transform, lastItemOfParagraph.transform);
-            
             const copyBtn = document.createElement('button');
             copyBtn.id = 'copy-paragraph-btn';
             copyBtn.textContent = 'Copy';
             copyBtn.style.left = `${tx[4] + lastItemOfParagraph.width * currentViewport.scale + 5}px`;
             copyBtn.style.top = `${tx[5] - lastItemOfParagraph.height * currentViewport.scale}px`;
-            
             copyBtn.onclick = async () => {
                 try {
                     await navigator.clipboard.writeText(paragraphText.trim());
@@ -1100,7 +1054,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pdfContainer) {
         pdfContainer.addEventListener('click', handleParagraphSelection);
     }
-
 
     initLocalMagnifier();
     updatePageControls();
