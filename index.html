@@ -246,18 +246,15 @@
       border-color: #007bff;
     }
 
-    #quality-control,
     #local-magnifier-zoom-controls {
       display: flex;
       align-items: center;
       gap: 5px;
     }
-    #quality-control label,
     #local-magnifier-zoom-controls label {
       white-space: nowrap;
       font-size: 0.9em;
     }
-    #quality-control select,
     #local-magnifier-zoom-controls select {
       padding: 6px;
     }
@@ -303,7 +300,7 @@
       pointer-events: none;
     }
 
-    /* --- NEW: Styles for paragraph selection --- */
+    /* --- Styles for paragraph selection --- */
     #pdf-container.paragraph-selection-mode {
         cursor: pointer;
     }
@@ -434,7 +431,6 @@
     #toggle-text-selection-btn.active {
       background-color: rgba(0, 0, 100, 0.7);
     }
-    /* --- NEW: Active state for paragraph selection button --- */
     #toggle-paragraph-selection-btn.active {
       background-color: rgba(0, 123, 255, 0.7);
     }
@@ -566,15 +562,12 @@
       #toolbar input[type="number"],
       #toolbar select,
       #toolbar button,
-      #quality-control,
       #local-magnifier-zoom-controls {
         width: 100%;
       }
-      #quality-control,
       #local-magnifier-zoom-controls {
         justify-content: space-between;
       }
-      #quality-control select,
       #local-magnifier-zoom-controls select {
         flex-grow: 1;
       }
@@ -675,13 +668,11 @@
       #toolbar input[type="file"] {
         font-size: 0.7em !important;
       }
-      #quality-control label,
       #local-magnifier-zoom-controls label {
         font-size: 0.7em !important;
         margin-right: 3px !important;
         padding: 1px !important;
       }
-      #quality-control select,
       #local-magnifier-zoom-controls select {
         font-size: 0.7em !important;
         padding: 1px !important;
@@ -746,15 +737,6 @@
       <input type="text" id="searchInput" placeholder="Keyword or Regex" />
       <button id="search-action-button">Search</button>
       
-      <div id="quality-control">
-        <label for="quality-selector">Quality:</label>
-        <select id="quality-selector">
-            <option value="1.0">Standard</option>
-            <option value="1.5" selected>High</option>
-            <option value="2.0">Highest</option>
-        </select>
-      </div>
-      
       <div id="zoom-controls">
         <button id="zoom-out-btn" title="Zoom Out">-</button>
         <button id="fit-height-btn" title="Fit to Page Height">Fit Height</button>
@@ -807,7 +789,6 @@
         <span class="toggle-underline-icon">S</span>
     </button>
     <div class="fab-button-group">
-        <!-- NEW: Paragraph Selection Button -->
         <button id="toggle-paragraph-selection-btn" title="Enable Paragraph Selection">¶</button>
         <button id="copy-page-text-btn" title="Copy Page Text">📝</button>
         <button id="toggle-text-selection-btn" title="Enable Text Selection">TS</button>
