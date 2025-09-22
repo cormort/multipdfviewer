@@ -81,8 +81,8 @@
       display: flex;
     }
     #panel-dropdown-container { padding: 10px; border-bottom: 1px solid #ccc; }
-    /* FIX: Added container for cascading dropdowns */
-    .filter-container { display: flex; gap: 5px; flex-direction: column; }
+    /* FIX: Use flex-direction column for vertical stacking */
+    .filter-container { display: flex; flex-direction: column; gap: 8px; }
     .filter-container select { width: 100%; }
 
     #results-list { flex-grow: 1; overflow-y: auto; }
