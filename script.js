@@ -17,7 +17,7 @@ let currentScale = 1.0;
 let paragraphSelectionModeActive = false;
 let currentPageTextContent = null;
 let currentViewport = null;
-let thumbnailObserver = null; // NEW: For lazy loading thumbnails
+let thumbnailObserver = null;
 
 // --- DOM 元素選擇 ---
 const canvas = document.getElementById('pdf-canvas');
@@ -65,8 +65,6 @@ const zoomLevelDisplay = document.getElementById('zoom-level-display');
 const toggleParagraphSelectionBtn = document.getElementById('toggle-paragraph-selection-btn');
 const resizer = document.getElementById('resizer');
 const mainContent = document.getElementById('main-content');
-
-// NEW: UI elements for file input control
 const fileInput = document.getElementById('fileInput');
 const fileInputLabel = document.querySelector('label[for="fileInput"]');
 const clearSessionBtn = document.getElementById('clear-session-btn');
@@ -83,7 +81,6 @@ let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
 
-// NEW: Function to reset the application state
 function resetApp() {
     pdfDocs = [];
     pageMap = [];
@@ -92,7 +89,6 @@ function resetApp() {
     searchResults = [];
     currentFileFilter = 'all';
 
-    // Clear UI
     if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     if(textLayerDivGlobal) textLayerDivGlobal.innerHTML = '';
     if(resultsList) resultsList.innerHTML = '';
@@ -101,10 +97,9 @@ function resetApp() {
     if(fileFilterDropdown) fileFilterDropdown.innerHTML = '<option value="all">All Files</option>';
     if(panelFileFilterDropdown) panelFileFilterDropdown.innerHTML = '<option value="all">All Files</option>';
 
-    // Show file input and hide clear button
     if(fileInput) {
         fileInput.style.display = 'block';
-        fileInput.value = null; // Allow re-selecting the same file
+        fileInput.value = null;
     }
     if(fileInputLabel) fileInputLabel.style.display = 'block';
     if(clearSessionBtn) clearSessionBtn.style.display = 'none';
@@ -121,7 +116,6 @@ async function loadAndProcessFiles(files) {
         return;
     }
     
-    // Reset state before loading new files
     resetApp();
 
     pdfDocs = [];
@@ -162,7 +156,7 @@ async function loadAndProcessFiles(files) {
 
         if (loadedPdfs.length === 0) {
             alert('No valid PDF files were selected.');
-            resetApp(); // Reset back to initial state
+            resetApp();
             return;
         }
 
@@ -175,7 +169,6 @@ async function loadAndProcessFiles(files) {
         globalTotalPages = pageMap.length;
         renderPage(1);
 
-        // MODIFIED: Hide file input and show clear button after successful load
         if(fileInput) fileInput.style.display = 'none';
         if(fileInputLabel) fileInputLabel.style.display = 'none';
         if(clearSessionBtn) clearSessionBtn.style.display = 'block';
@@ -201,7 +194,6 @@ fileInput.addEventListener('change', async function(e) {
     }
 });
 
-// NEW: Event listener for the clear button
 clearSessionBtn.addEventListener('click', resetApp);
 
 
@@ -322,11 +314,22 @@ function updatePageControls() {
     toggleTextSelectionBtn.classList.toggle('active', textSelectionModeActive);
     toggleTextSelectionBtn.title = textSelectionModeActive ? 'Disable Text Selection' : 'Enable Text Selection';
     toggleParagraphSelectionBtn.classList.toggle('active', paragraphSelectionModeActive);
-    toggleParagraphSelectionBtn.title = paragraphSelectionModeActive ? 'Disable Paragraph Selection' : 'Enable Paragraph Selection';
     if (sharePageBtn) sharePageBtn.disabled = !navigator.share;
     toggleLocalMagnifierBtn.classList.toggle('active', localMagnifierEnabled);
     toggleLocalMagnifierBtn.title = localMagnifierEnabled ? 'Disable Magnifier' : 'Enable Magnifier';
     if (localMagnifierZoomControlsDiv) localMagnifierZoomControlsDiv.style.display = (hasDocs && localMagnifierEnabled) ? 'flex' : 'none';
+
+    // MODIFIED: Logic to enable/disable buttons based on TS mode
+    const isTSModeActive = textSelectionModeActive;
+    if (copyPageTextBtn) {
+        copyPageTextBtn.disabled = !hasDocs || !isTSModeActive;
+        copyPageTextBtn.title = isTSModeActive ? 'Copy Page Text' : 'Enable Text Selection (TS) to use';
+    }
+    if (toggleParagraphSelectionBtn) {
+        toggleParagraphSelectionBtn.disabled = !hasDocs || !isTSModeActive;
+        toggleParagraphSelectionBtn.title = isTSModeActive ? 'Enable Paragraph Selection' : 'Enable Text Selection (TS) to use';
+    }
+
 
     updateResultsNav();
     updateZoomControls();
@@ -383,7 +386,7 @@ function renderPage(globalPageNum, highlightPattern = null) {
         const viewportCss = page.getViewport({ scale: scaleForCss });
         currentViewport = viewportCss;
         const devicePixelRatio = window.devicePixelRatio || 1;
-        const qualityMultiplier = 1.2; // Reduced from 1.5 for better performance
+        const qualityMultiplier = 1.2;
 
         const renderScale = scaleForCss * devicePixelRatio * qualityMultiplier;
         const viewportRender = page.getViewport({ scale: renderScale });
@@ -497,7 +500,6 @@ if (drawingCanvas) {
     drawingCanvas.addEventListener('touchcancel', stopDrawing);
 }
 
-// MODIFIED: This function is now only called by the lazy load observer
 async function renderThumbnail(docIndex, localPageNum, canvasEl) {
     try {
         const doc = pdfDocs[docIndex];
@@ -516,7 +518,6 @@ async function renderThumbnail(docIndex, localPageNum, canvasEl) {
     }
 }
 
-// NEW: Initialize the Intersection Observer for lazy loading
 function initThumbnailObserver() {
     if (thumbnailObserver) {
         thumbnailObserver.disconnect();
@@ -529,10 +530,10 @@ function initThumbnailObserver() {
                 const docIndex = parseInt(canvas.dataset.docIndex, 10);
                 const localPage = parseInt(canvas.dataset.localPage, 10);
                 renderThumbnail(docIndex, localPage, canvas);
-                observer.unobserve(canvas); // Render only once
+                observer.unobserve(canvas);
             }
         });
-    }, { root: resultsList, rootMargin: '0px 0px 200px 0px' }); // Load images 200px before they enter viewport
+    }, { root: resultsList, rootMargin: '0px 0px 200px 0px' });
 }
 
 function searchKeyword() {
@@ -708,18 +709,16 @@ function updateFilterAndResults(selectedFile = 'all') {
         if (filteredResults.length === 0) {
              resultsList.innerHTML = '<p style="padding: 10px;">No results found for this file.</p>';
         } else {
-            initThumbnailObserver(); // Start the observer
+            initThumbnailObserver();
             filteredResults.forEach(result => {
                 const resultItem = document.createElement('div');
                 resultItem.className = 'result-item';
-                // MODIFIED: Added data- attributes for lazy loading
                 resultItem.innerHTML = `<canvas class="thumbnail-canvas" data-doc-index="${result.docIndex}" data-local-page="${result.localPage}"></canvas>
                                         <div class="page-info">Page ${result.page} (File: ${result.docName})</div>
                                         <div class="context-snippet">${result.summary}</div>`;
                 resultItem.addEventListener('click', () => goToPage(result.page, getPatternFromSearchInput()));
                 resultsList.appendChild(resultItem);
                 const thumbnailCanvas = resultItem.querySelector('.thumbnail-canvas');
-                // renderThumbnail is NOT called here anymore. The observer will handle it.
                 thumbnailObserver.observe(thumbnailCanvas);
             });
         }
@@ -1195,7 +1194,7 @@ if (pdfContainer) {
 
 function rerenderAllThumbnails() {
     if (!resultsList) return;
-    initThumbnailObserver(); // Re-initialize the observer
+    initThumbnailObserver();
     const resultItems = resultsList.querySelectorAll('.result-item');
     
     resultItems.forEach(item => {
@@ -1274,7 +1273,7 @@ async function initializeApp() {
     }
 }
 
-// Initial calls to set up the application
+// Initial calls
 initLocalMagnifier();
 updatePageControls();
 initResizer();
