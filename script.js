@@ -319,7 +319,6 @@ function updatePageControls() {
     toggleLocalMagnifierBtn.title = localMagnifierEnabled ? 'Disable Magnifier' : 'Enable Magnifier';
     if (localMagnifierZoomControlsDiv) localMagnifierZoomControlsDiv.style.display = (hasDocs && localMagnifierEnabled) ? 'flex' : 'none';
 
-    // MODIFIED: Logic to enable/disable buttons based on TS mode
     const isTSModeActive = textSelectionModeActive;
     if (copyPageTextBtn) {
         copyPageTextBtn.disabled = !hasDocs || !isTSModeActive;
@@ -911,15 +910,21 @@ if (toggleLocalMagnifierBtn) toggleLocalMagnifierBtn.addEventListener('click', (
     updatePageControls();
 });
 
+// MODIFIED: Paragraph selection is now a sub-mode of Text Selection (TS)
 if (toggleParagraphSelectionBtn) toggleParagraphSelectionBtn.addEventListener('click', () => {
-    if (pdfDocs.length === 0) return;
-    const wasActive = paragraphSelectionModeActive;
-    deactivateAllModes();
-    if (!wasActive) {
-        paragraphSelectionModeActive = true;
+    if (pdfDocs.length === 0 || !textSelectionModeActive) return; // Must be in TS mode to use
+
+    // Simply toggle paragraph mode without affecting other modes
+    paragraphSelectionModeActive = !paragraphSelectionModeActive;
+
+    if (paragraphSelectionModeActive) {
         if (pdfContainer) pdfContainer.classList.add('paragraph-selection-mode');
+    } else {
+        if (pdfContainer) pdfContainer.classList.remove('paragraph-selection-mode');
+        clearParagraphHighlights();
     }
-    updatePageControls();
+    
+    updatePageControls(); // Update button styles
 });
 
 
