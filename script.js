@@ -910,11 +910,9 @@ if (toggleLocalMagnifierBtn) toggleLocalMagnifierBtn.addEventListener('click', (
     updatePageControls();
 });
 
-// MODIFIED: Paragraph selection is now a sub-mode of Text Selection (TS)
 if (toggleParagraphSelectionBtn) toggleParagraphSelectionBtn.addEventListener('click', () => {
-    if (pdfDocs.length === 0 || !textSelectionModeActive) return; // Must be in TS mode to use
+    if (pdfDocs.length === 0 || !textSelectionModeActive) return;
 
-    // Simply toggle paragraph mode without affecting other modes
     paragraphSelectionModeActive = !paragraphSelectionModeActive;
 
     if (paragraphSelectionModeActive) {
@@ -924,7 +922,7 @@ if (toggleParagraphSelectionBtn) toggleParagraphSelectionBtn.addEventListener('c
         clearParagraphHighlights();
     }
     
-    updatePageControls(); // Update button styles
+    updatePageControls();
 });
 
 
@@ -1093,7 +1091,7 @@ function handleParagraphSelection(e) {
 
     clearParagraphHighlights();
 
-    const pos = getEventPosition(canvas, e);
+    const pos = getEventPosition(textLayerDivGlobal, e); // Use text-layer for coordinates
     const clickPoint = { x: pos.x, y: pos.y };
 
     let closestItem = null;
@@ -1166,7 +1164,7 @@ function handleParagraphSelection(e) {
         highlight.style.top = `${txFirst[5] - firstItem.height * currentViewport.scale}px`;
         highlight.style.width = `${(txLast[4] + lastItem.width * currentViewport.scale) - txFirst[4]}px`;
         highlight.style.height = `${firstItem.height * currentViewport.scale}px`;
-        pdfContainer.appendChild(highlight);
+        textLayerDivGlobal.appendChild(highlight); // MODIFIED: Append to text-layer
         paragraphText += line.map(item => item.str).join('') + '\n';
     }
 
@@ -1189,12 +1187,13 @@ function handleParagraphSelection(e) {
                 console.error('Copy failed:', err);
             }
         };
-        pdfContainer.appendChild(copyBtn);
+        textLayerDivGlobal.appendChild(copyBtn); // MODIFIED: Append to text-layer
     }
 }
 
 if (pdfContainer) {
-    pdfContainer.addEventListener('click', handleParagraphSelection);
+    // MODIFIED: This listener should be on the text-layer when in paragraph mode
+    textLayerDivGlobal.addEventListener('click', handleParagraphSelection);
 }
 
 function rerenderAllThumbnails() {
