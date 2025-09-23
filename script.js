@@ -2,15 +2,14 @@
 
 import { initDB, saveFiles, getFiles } from './db.js';
 
-// The DOMContentLoaded wrapper has been removed to fix scope issues.
-
+// --- 全域變數 ---
 let pdfDocs = [];
 let pageMap = [];
 let globalTotalPages = 0;
 let currentPage = 1;
 let pageRendering = false;
 let searchResults = [];
-let currentFileFilter = 'all'; // For cascading dropdowns
+let currentFileFilter = 'all'; 
 
 let currentZoomMode = 'height';
 let currentScale = 1.0;
@@ -18,7 +17,9 @@ let currentScale = 1.0;
 let paragraphSelectionModeActive = false;
 let currentPageTextContent = null;
 let currentViewport = null;
+let thumbnailObserver = null; // NEW: For lazy loading thumbnails
 
+// --- DOM 元素選擇 ---
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
 const toolbar = document.getElementById('toolbar');
@@ -33,14 +34,10 @@ const pageNumDisplay = document.getElementById('page-num-display');
 const pageToGoInput = document.getElementById('page-to-go');
 const goToPageBtn = document.getElementById('go-to-page-btn');
 const pageSlider = document.getElementById('page-slider');
-
-// Dropdown selectors (including new ones)
 const resultsDropdown = document.getElementById('resultsDropdown');
 const panelResultsDropdown = document.getElementById('panelResultsDropdown');
 const fileFilterDropdown = document.getElementById('fileFilterDropdown');
 const panelFileFilterDropdown = document.getElementById('panelFileFilterDropdown');
-
-
 const exportPageBtn = document.getElementById('export-page-btn');
 const sharePageBtn = document.getElementById('share-page-btn');
 const toggleUnderlineBtn = document.getElementById('toggle-underline-btn');
@@ -51,29 +48,28 @@ const drawingCanvas = document.getElementById('drawing-canvas');
 const drawingCtx = drawingCanvas ? drawingCanvas.getContext('2d') : null;
 const searchInputElem = document.getElementById('searchInput');
 const searchActionButton = document.getElementById('search-action-button');
-
 const magnifierGlass = document.getElementById('magnifier-glass');
 const magnifierCanvas = document.getElementById('magnifier-canvas');
 const localMagnifierCtx = magnifierCanvas ? magnifierCanvas.getContext('2d') : null;
 const toggleLocalMagnifierBtn = document.getElementById('toggle-local-magnifier-btn');
 const localMagnifierZoomControlsDiv = document.getElementById('local-magnifier-zoom-controls');
 const localMagnifierZoomSelector = document.getElementById('local-magnifier-zoom-selector');
-
 const searchResultsPanel = document.getElementById('search-results-panel');
 const resultsList = document.getElementById('results-list');
 const copyPageTextBtn = document.getElementById('copy-page-text-btn');
-
 const zoomOutBtn = document.getElementById('zoom-out-btn');
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const fitWidthBtn = document.getElementById('fit-width-btn');
 const fitHeightBtn = document.getElementById('fit-height-btn');
 const zoomLevelDisplay = document.getElementById('zoom-level-display');
-
 const toggleParagraphSelectionBtn = document.getElementById('toggle-paragraph-selection-btn');
-
-// Resizer selectors
 const resizer = document.getElementById('resizer');
 const mainContent = document.getElementById('main-content');
+
+// NEW: UI elements for file input control
+const fileInput = document.getElementById('fileInput');
+const fileInputLabel = document.querySelector('label[for="fileInput"]');
+const clearSessionBtn = document.getElementById('clear-session-btn');
 
 
 let localMagnifierEnabled = false;
@@ -87,43 +83,58 @@ let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
 
-async function loadAndProcessFiles(files) {
-    if (!files || files.length === 0) return;
-    if (typeof pdfjsLib === 'undefined') {
-        alert('The PDF library failed to load correctly, cannot open files.');
-        return;
-    }
-
+// NEW: Function to reset the application state
+function resetApp() {
     pdfDocs = [];
     pageMap = [];
     globalTotalPages = 0;
     currentPage = 1;
     searchResults = [];
     currentFileFilter = 'all';
-    currentZoomMode = 'height';
 
-    if (resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
-    if (panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
-    if (fileFilterDropdown) fileFilterDropdown.innerHTML = '<option value="all">All Files</option>';
-    if (panelFileFilterDropdown) panelFileFilterDropdown.innerHTML = '<option value="all">All Files</option>';
-    if (resultsList) resultsList.innerHTML = '';
+    // Clear UI
+    if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(textLayerDivGlobal) textLayerDivGlobal.innerHTML = '';
+    if(resultsList) resultsList.innerHTML = '';
+    if(resultsDropdown) resultsDropdown.innerHTML = '<option value="">Search Results</option>';
+    if(panelResultsDropdown) panelResultsDropdown.innerHTML = '<option value="">Search Results</option>';
+    if(fileFilterDropdown) fileFilterDropdown.innerHTML = '<option value="all">All Files</option>';
+    if(panelFileFilterDropdown) panelFileFilterDropdown.innerHTML = '<option value="all">All Files</option>';
+
+    // Show file input and hide clear button
+    if(fileInput) {
+        fileInput.style.display = 'block';
+        fileInput.value = null; // Allow re-selecting the same file
+    }
+    if(fileInputLabel) fileInputLabel.style.display = 'block';
+    if(clearSessionBtn) clearSessionBtn.style.display = 'none';
+
+    updatePageControls();
     updateResultsNav();
+}
+
+
+async function loadAndProcessFiles(files) {
+    if (!files || files.length === 0) return;
+    if (typeof pdfjsLib === 'undefined') {
+        alert('The PDF library failed to load correctly, cannot open files.');
+        return;
+    }
+    
+    // Reset state before loading new files
+    resetApp();
+
+    pdfDocs = [];
+    pageMap = [];
+    globalTotalPages = 0;
+    currentPage = 1;
+    currentZoomMode = 'height';
 
     if (searchInputElem) searchInputElem.value = '';
     showSearchResultsHighlights = true;
     if (textLayerDivGlobal) textLayerDivGlobal.classList.remove('highlights-hidden');
     
     deactivateAllModes();
-
-    if (textLayerDivGlobal) {
-        textLayerDivGlobal.classList.remove('text-selection-active');
-        textLayerDivGlobal.style.pointerEvents = 'none';
-    }
-    if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
-    if (canvas) canvas.style.visibility = 'visible';
-    if (drawingCtx && drawingCanvas) drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-    if (magnifierGlass) magnifierGlass.style.display = 'none';
-    if (pdfContainer) pdfContainer.classList.remove('paragraph-selection-mode');
 
     const loadingPromises = Array.from(files).map(file => {
         return new Promise((resolve) => {
@@ -151,8 +162,7 @@ async function loadAndProcessFiles(files) {
 
         if (loadedPdfs.length === 0) {
             alert('No valid PDF files were selected.');
-            pdfDocs = [];
-            updatePageControls();
+            resetApp(); // Reset back to initial state
             return;
         }
 
@@ -164,15 +174,20 @@ async function loadAndProcessFiles(files) {
         });
         globalTotalPages = pageMap.length;
         renderPage(1);
+
+        // MODIFIED: Hide file input and show clear button after successful load
+        if(fileInput) fileInput.style.display = 'none';
+        if(fileInputLabel) fileInputLabel.style.display = 'none';
+        if(clearSessionBtn) clearSessionBtn.style.display = 'block';
+
     } catch (error) {
         alert('An error occurred while reading the PDF file: ' + error);
         console.error('Error during file processing:', error);
-        pdfDocs = [];
-        updatePageControls();
+        resetApp();
     }
 }
 
-document.getElementById('fileInput').addEventListener('change', async function(e) {
+fileInput.addEventListener('change', async function(e) {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
         try {
@@ -185,6 +200,10 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         }
     }
 });
+
+// NEW: Event listener for the clear button
+clearSessionBtn.addEventListener('click', resetApp);
+
 
 function getDocAndLocalPage(globalPage) {
     if (globalPage < 1 || globalPage > globalTotalPages || pageMap.length === 0) return null;
@@ -364,7 +383,7 @@ function renderPage(globalPageNum, highlightPattern = null) {
         const viewportCss = page.getViewport({ scale: scaleForCss });
         currentViewport = viewportCss;
         const devicePixelRatio = window.devicePixelRatio || 1;
-        const qualityMultiplier = 1.5;
+        const qualityMultiplier = 1.2; // Reduced from 1.5 for better performance
 
         const renderScale = scaleForCss * devicePixelRatio * qualityMultiplier;
         const viewportRender = page.getViewport({ scale: renderScale });
@@ -478,6 +497,7 @@ if (drawingCanvas) {
     drawingCanvas.addEventListener('touchcancel', stopDrawing);
 }
 
+// MODIFIED: This function is now only called by the lazy load observer
 async function renderThumbnail(docIndex, localPageNum, canvasEl) {
     try {
         const doc = pdfDocs[docIndex];
@@ -496,10 +516,29 @@ async function renderThumbnail(docIndex, localPageNum, canvasEl) {
     }
 }
 
+// NEW: Initialize the Intersection Observer for lazy loading
+function initThumbnailObserver() {
+    if (thumbnailObserver) {
+        thumbnailObserver.disconnect();
+    }
+
+    thumbnailObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const canvas = entry.target;
+                const docIndex = parseInt(canvas.dataset.docIndex, 10);
+                const localPage = parseInt(canvas.dataset.localPage, 10);
+                renderThumbnail(docIndex, localPage, canvas);
+                observer.unobserve(canvas); // Render only once
+            }
+        });
+    }, { root: resultsList, rootMargin: '0px 0px 200px 0px' }); // Load images 200px before they enter viewport
+}
+
 function searchKeyword() {
     const input = searchInputElem.value.trim();
     searchResults = [];
-    currentFileFilter = 'all'; // Reset filter on new search
+    currentFileFilter = 'all'; 
 
     const searchingOption = '<option value="">Searching...</option>';
     if(resultsDropdown) resultsDropdown.innerHTML = searchingOption;
@@ -600,7 +639,7 @@ function searchKeyword() {
             if(resultsList) resultsList.innerHTML = '<p style="padding: 10px;">Keyword not found.</p>';
             renderPage(currentPage, null);
         } else {
-            updateFilterAndResults('all'); // Populate all results initially
+            updateFilterAndResults('all'); 
             if (searchResults.length > 0) {
                 goToPage(searchResults[0].page, pattern);
             }
@@ -629,8 +668,6 @@ function updateResultsNav() {
 
 function updateFilterAndResults(selectedFile = 'all') {
     currentFileFilter = selectedFile;
-
-    // 1. Get unique doc names and populate file filters
     const docNames = [...new Set(searchResults.map(r => r.docName))];
     const fileDropdowns = [fileFilterDropdown, panelFileFilterDropdown];
 
@@ -643,19 +680,17 @@ function updateFilterAndResults(selectedFile = 'all') {
             option.textContent = name;
             dropdown.appendChild(option);
         });
-        dropdown.value = currentFileFilter; // Set the current selection
+        dropdown.value = currentFileFilter;
     });
 
-    // 2. Filter search results based on selection
     const filteredResults = currentFileFilter === 'all'
         ? searchResults
         : searchResults.filter(r => r.docName === currentFileFilter);
 
-    // 3. Populate summary dropdowns
     const summaryDropdowns = [resultsDropdown, panelResultsDropdown];
     summaryDropdowns.forEach(dropdown => {
         if (!dropdown) return;
-        dropdown.innerHTML = ''; // Clear previous results
+        dropdown.innerHTML = '';
         if (filteredResults.length === 0) {
             dropdown.innerHTML = '<option value="">No results for this file</option>';
         } else {
@@ -668,25 +703,28 @@ function updateFilterAndResults(selectedFile = 'all') {
         }
     });
     
-    // 4. Populate results list panel
     if (resultsList) {
-        resultsList.innerHTML = ''; // Clear previous list
+        resultsList.innerHTML = '';
         if (filteredResults.length === 0) {
              resultsList.innerHTML = '<p style="padding: 10px;">No results found for this file.</p>';
         } else {
+            initThumbnailObserver(); // Start the observer
             filteredResults.forEach(result => {
                 const resultItem = document.createElement('div');
                 resultItem.className = 'result-item';
-                resultItem.innerHTML = `<canvas class="thumbnail-canvas"></canvas><div class="page-info">Page ${result.page} (File: ${result.docName})</div><div class="context-snippet">${result.summary}</div>`;
+                // MODIFIED: Added data- attributes for lazy loading
+                resultItem.innerHTML = `<canvas class="thumbnail-canvas" data-doc-index="${result.docIndex}" data-local-page="${result.localPage}"></canvas>
+                                        <div class="page-info">Page ${result.page} (File: ${result.docName})</div>
+                                        <div class="context-snippet">${result.summary}</div>`;
                 resultItem.addEventListener('click', () => goToPage(result.page, getPatternFromSearchInput()));
                 resultsList.appendChild(resultItem);
                 const thumbnailCanvas = resultItem.querySelector('.thumbnail-canvas');
-                renderThumbnail(result.docIndex, result.localPage, thumbnailCanvas);
+                // renderThumbnail is NOT called here anymore. The observer will handle it.
+                thumbnailObserver.observe(thumbnailCanvas);
             });
         }
     }
     
-    // 5. If a page is showing, update its selection in the new dropdown
     const currentPageResult = filteredResults.find(r => r.page === currentPage);
     if (currentPageResult) {
         summaryDropdowns.forEach(d => { if(d) d.value = currentPage; });
@@ -697,7 +735,6 @@ function updateFilterAndResults(selectedFile = 'all') {
 if (searchActionButton) searchActionButton.addEventListener('click', searchKeyword);
 if (searchInputElem) searchInputElem.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchActionButton.click(); } });
 
-// Summary dropdown listeners
 if (resultsDropdown) {
     resultsDropdown.addEventListener('change', () => goToPageDropdown(resultsDropdown.value));
 }
@@ -705,7 +742,6 @@ if (panelResultsDropdown) {
     panelResultsDropdown.addEventListener('change', () => goToPageDropdown(panelResultsDropdown.value));
 }
 
-// File filter dropdown listeners
 if (fileFilterDropdown) {
     fileFilterDropdown.addEventListener('change', (e) => {
         updateFilterAndResults(e.target.value);
@@ -1159,24 +1195,13 @@ if (pdfContainer) {
 
 function rerenderAllThumbnails() {
     if (!resultsList) return;
+    initThumbnailObserver(); // Re-initialize the observer
     const resultItems = resultsList.querySelectorAll('.result-item');
     
-    const filteredResults = currentFileFilter === 'all'
-        ? searchResults
-        : searchResults.filter(r => r.docName === currentFileFilter);
-
-    if (resultItems.length !== filteredResults.length) {
-        console.warn("Mismatch between DOM results and filtered results. Skipping thumbnail rerender.");
-        return;
-    }
-
-    resultItems.forEach((item, index) => {
-        const resultData = filteredResults[index];
+    resultItems.forEach(item => {
         const canvasEl = item.querySelector('.thumbnail-canvas');
-        if (resultData && canvasEl) {
-            const ctx = canvasEl.getContext('2d');
-            ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-            renderThumbnail(resultData.docIndex, resultData.localPage, canvasEl);
+        if (canvasEl) {
+            thumbnailObserver.observe(canvasEl);
         }
     });
 }
@@ -1205,7 +1230,7 @@ function initResizer() {
         const newWidth = panelWidth - dx;
         
         const minWidth = 200;
-        const maxWidth = mainContent.clientWidth * 0.7; // 70% of parent
+        const maxWidth = mainContent.clientWidth * 0.7;
         if (newWidth > minWidth && newWidth < maxWidth) {
              searchResultsPanel.style.flexBasis = `${newWidth}px`;
         }
