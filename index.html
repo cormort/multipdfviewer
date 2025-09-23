@@ -142,6 +142,8 @@
       height: auto;
       border: 1px solid #e9ecef;
       margin-bottom: 8px;
+      background-color: #f8f9fa; /* Placeholder color */
+      min-height: 100px; /* Placeholder height */
     }
     .result-item .page-info {
       font-weight: bold;
@@ -616,7 +618,6 @@
       #local-magnifier-zoom-controls {
         width: 100%;
       }
-      /* --- THIS IS THE FIX --- */
       #toolbar input[type="text"],
       #toolbar button {
         padding-top: 6px;
@@ -782,8 +783,13 @@
       <div id="restore-session-container" style="display: none; width: 100%; text-align: center; margin-bottom: 10px;">
         <button id="restore-session-btn" style="width: 100%; padding: 10px; background-color: #28a745; color: white; border-color: #28a745; cursor: pointer;">Restore Last Session</button>
       </div>
-      <label for="fileInput" style="display: block; font-size: 0.9em; margin-bottom: -5px;">Choose one or more PDF files:</label>
-      <input type="file" id="fileInput" accept="application/pdf" multiple />
+      
+      <div id="file-selection-container">
+        <label for="fileInput" style="display: block; font-size: 0.9em; margin-bottom: -5px;">Choose one or more PDF files:</label>
+        <input type="file" id="fileInput" accept="application/pdf" multiple />
+        <button id="clear-session-btn" style="display: none; width: 100%; margin-top: 5px;">Clear / Re-select</button>
+      </div>
+
       <input type="text" id="searchInput" placeholder="Keyword or Regex" />
       <button id="search-action-button">Search</button>
       
