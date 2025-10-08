@@ -1,131 +1,19 @@
+// in js/app.js
+
+// **變更點 1: 從新的 state.js 導入狀態和 DOM**
+import { dom, appState, resetAppState } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
 import * as Viewer from './viewer.js';
 import * as Search from './search.js';
-import * as Recompose from './recompose.js';
 import { showFeedback } from './utils.js';
 
-// Centralized DOM Elements
-export const dom = {
-    appContainer: document.getElementById('app-container'),
-    toolbar: document.getElementById('toolbar'),
-    toolbarToggleTab: document.getElementById('toolbar-toggle-tab'),
-    mainContent: document.getElementById('main-content'),
-    resizer: document.getElementById('resizer'),
-    pdfContainer: document.getElementById('pdf-container'),
-    canvas: document.getElementById('pdf-canvas'),
-    ctx: document.getElementById('pdf-canvas')?.getContext('2d'),
-    textLayerDivGlobal: document.getElementById('text-layer'),
-    drawingCanvas: document.getElementById('drawing-canvas'),
-    drawingCtx: document.getElementById('drawing-canvas')?.getContext('2d'),
-    magnifierGlass: document.getElementById('magnifier-glass'),
-    magnifierCanvas: document.getElementById('magnifier-canvas'),
-    localMagnifierCtx: document.getElementById('magnifier-canvas')?.getContext('2d'),
-    
-    // File
-    fileInput: document.getElementById('fileInput'),
-    fileInputLabel: document.querySelector('label[for="fileInput"]'),
-    clearSessionBtn: document.getElementById('clear-session-btn'),
-    restoreSessionBtn: document.getElementById('restore-session-btn'),
-    restoreSessionContainer: document.getElementById('restore-session-container'),
-    
-    // Nav
-    goToFirstPageBtn: document.getElementById('go-to-first-page'),
-    prevPageBtn: document.getElementById('prev-page'),
-    nextPageBtn: document.getElementById('next-page'),
-    goToLastPageBtn: document.getElementById('go-to-last-page'),
-    pageNumDisplay: document.getElementById('page-num-display'),
-    pageToGoInput: document.getElementById('page-to-go'),
-    goToPageBtn: document.getElementById('go-to-page-btn'),
-    pageSlider: document.getElementById('page-slider'),
-    
-    // Search
-    searchInputElem: document.getElementById('searchInput'),
-    searchActionButton: document.getElementById('search-action-button'),
-    resultsDropdown: document.getElementById('resultsDropdown'),
-    panelResultsDropdown: document.getElementById('panelResultsDropdown'),
-    fileFilterDropdown: document.getElementById('fileFilterDropdown'),
-    panelFileFilterDropdown: document.getElementById('panelFileFilterDropdown'),
-    searchResultsPanel: document.getElementById('search-results-panel'),
-    resultsList: document.getElementById('results-list'),
-    
-    // Zoom
-    zoomOutBtn: document.getElementById('zoom-out-btn'),
-    zoomInBtn: document.getElementById('zoom-in-btn'),
-    zoomLevelDisplay: document.getElementById('zoom-level-display'),
-    
-    // Tools
-    toggleUnderlineBtn: document.getElementById('toggle-underline-btn'),
-    toggleHighlighterBtn: document.getElementById('toggle-highlighter-btn'),
-    clearHighlighterBtn: document.getElementById('clear-highlighter-btn'),
-    toggleTextSelectionBtn: document.getElementById('toggle-text-selection-btn'),
-    toggleParagraphSelectionBtn: document.getElementById('toggle-paragraph-selection-btn'),
-    copyPageTextBtn: document.getElementById('copy-page-text-btn'),
-    exportPageBtn: document.getElementById('export-page-btn'),
-    sharePageBtn: document.getElementById('share-page-btn'),
-    toggleLocalMagnifierBtn: document.getElementById('toggle-local-magnifier-btn'),
-    localMagnifierZoomControlsDiv: document.getElementById('local-magnifier-zoom-controls'),
-    localMagnifierZoomSelector: document.getElementById('local-magnifier-zoom-selector'),
-    
-    // Recompose
-    recomposePdfBtn: document.getElementById('recompose-pdf-btn'),
-    recomposePanel: document.getElementById('recompose-panel'),
-    closeRecomposePanelBtn: document.getElementById('close-recompose-panel'),
-    recomposePageList: document.getElementById('recompose-page-list'),
-    newPdfNameInput: document.getElementById('newPdfName'),
-    generateNewPdfBtn: document.getElementById('generate-new-pdf-btn'),
-    selectedPagesCountSpan: document.getElementById('selected-pages-count'),
-};
+// **變更點 2: dom 和 appState 的定義已移至 state.js，這裡不再需要它們**
 
-// Central Application State
-export let appState = {
-    pdfDocs: [],
-    pageMap: [],
-    globalTotalPages: 0,
-    currentPage: 1,
-    currentScale: 1.0,
-    currentZoomMode: 'height',
-    
-    searchResults: [],
-    currentFileFilter: 'all',
-    showSearchResultsHighlights: true,
-    
-    highlighterEnabled: false,
-    textSelectionModeActive: false,
-    paragraphSelectionModeActive: false,
-    localMagnifierEnabled: false,
-    pdfArrayBuffers: [],
-};
-
-export function resetAppState() {
-    appState = {
-        pdfDocs: [],
-        pageMap: [],
-        globalTotalPages: 0,
-        currentPage: 1,
-        currentScale: 1.0,
-        currentZoomMode: 'height',
-        searchResults: [],
-        currentFileFilter: 'all',
-        showSearchResultsHighlights: true,
-        highlighterEnabled: false,
-        textSelectionModeActive: false,
-        paragraphSelectionModeActive: false,
-        localMagnifierEnabled: false,
-        pdfArrayBuffers: [],
-    };
-    if (dom.searchInputElem) dom.searchInputElem.value = '';
-    // Also clear localStorage thumbnails if any
-    Object.keys(localStorage)
-        .filter(key => key.startsWith('thumbnail-'))
-        .forEach(key => localStorage.removeItem(key));
-}
-
-export async function handleFileSelect(e) {
+async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    // **變更點 1: 在這裡集中讀取所有檔案**
     const readFileAsBuffer = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -140,15 +28,10 @@ export async function handleFileSelect(e) {
     };
 
     try {
-        // 等待所有檔案都讀取完成
         const loadedFileData = await Promise.all(files.map(readFileAsBuffer));
-
-        // 現在我們有了安全的記憶體副本，再進行後續操作
         await saveFiles(loadedFileData);
         if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'none';
-
         await loadFilesIntoApp(loadedFileData);
-
     } catch (error) {
         console.error("處理檔案時發生錯誤:", error);
         showFeedback("讀取或儲存檔案時出錯。");
@@ -159,7 +42,6 @@ async function loadFilesIntoApp(loadedFileData) {
     resetAppState();
     UI.updateUIForNewState();
     
-    // **變更點 2: 將預先讀取好的資料傳給 Viewer**
     const loadedData = await Viewer.loadAndProcessFiles(loadedFileData);
     if (!loadedData) {
         showFeedback('未載入任何有效的 PDF 檔案。');
@@ -178,7 +60,6 @@ async function loadFilesIntoApp(loadedFileData) {
 }
 
 async function initializeApp() {
-    // Set PDF.js worker source
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
     } else {
@@ -186,10 +67,11 @@ async function initializeApp() {
         return;
     }
 
-    UI.initEventHandlers();
+    // **變更點 3: 將 handleFileSelect 作為回呼函數傳遞給 UI 模組**
+    UI.initEventHandlers(handleFileSelect);
     Viewer.initLocalMagnifier();
     Search.initThumbnailObserver();
-    UI.updateUIForNewState(); // Initial UI setup
+    UI.updateUIForNewState();
 
     try {
         await initDB();
@@ -198,13 +80,12 @@ async function initializeApp() {
             if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'block';
             if (dom.restoreSessionBtn) {
                 dom.restoreSessionBtn.onclick = async () => {
-                    // **確認這段邏輯**
-                    const readFileAsBuffer = (file) => { // file 是從 IndexedDB 取出的 File 物件
+                    const readFileAsBuffer = (file) => {
                         return new Promise((resolve, reject) => {
                             const reader = new FileReader();
                             reader.onload = () => resolve({ name: file.name, type: file.type, buffer: reader.result });
                             reader.onerror = (error) => reject(error);
-                            reader.readAsArrayBuffer(file); // 這裡傳入的也是 file，正確！
+                            reader.readAsArrayBuffer(file);
                         });
                     };
                     try {
@@ -223,5 +104,4 @@ async function initializeApp() {
     }
 }
 
-// Start the application
 document.addEventListener('DOMContentLoaded', initializeApp);
