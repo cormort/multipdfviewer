@@ -123,30 +123,46 @@ export function resetAppState() {
 
 export async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
-    if (files.length > 0) {
-        try {
-            await saveFiles(files);
-            if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'none';
-        } catch (dbError) {
-            console.warn("Could not save session to IndexedDB, but proceeding with loading.", dbError);
-        }
+    if (files.length === 0) return;
 
-        try {
-            await loadFilesIntoApp(files);
-        } catch (loadError) {
-            console.error("Failed to load or process PDF files:", loadError);
-            showFeedback("Error loading or processing PDF files.");
-        }
+    // **變更點 1: 在這裡集中讀取所有檔案**
+    const readFileAsBuffer = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({
+                name: file.name,
+                type: file.type,
+                buffer: reader.result
+            });
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    try {
+        // 等待所有檔案都讀取完成
+        const loadedFileData = await Promise.all(files.map(readFileAsBuffer));
+
+        // 現在我們有了安全的記憶體副本，再進行後續操作
+        await saveFiles(loadedFileData);
+        if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'none';
+
+        await loadFilesIntoApp(loadedFileData);
+
+    } catch (error) {
+        console.error("處理檔案時發生錯誤:", error);
+        showFeedback("讀取或儲存檔案時出錯。");
     }
 }
 
-async function loadFilesIntoApp(files) {
+async function loadFilesIntoApp(loadedFileData) {
     resetAppState();
-    UI.updateUIForNewState(); // Show a "loading" state
+    UI.updateUIForNewState();
     
-    const loadedData = await Viewer.loadAndProcessFiles(files);
+    // **變更點 2: 將預先讀取好的資料傳給 Viewer**
+    const loadedData = await Viewer.loadAndProcessFiles(loadedFileData);
     if (!loadedData) {
-        showFeedback('No valid PDF files were loaded.');
+        showFeedback('未載入任何有效的 PDF 檔案。');
         resetAppState();
         UI.updateUIForNewState();
         return;
@@ -156,9 +172,9 @@ async function loadFilesIntoApp(files) {
     appState.pageMap = loadedData.pageMap;
     appState.globalTotalPages = loadedData.globalTotalPages;
     appState.pdfArrayBuffers = loadedData.pdfArrayBuffers;
-    
-    Viewer.renderPage(1); // Render the first page
-    UI.updateUIForNewState(); // Update UI with new file data
+
+    Viewer.renderPage(1);
+    UI.updateUIForNewState();
 }
 
 async function initializeApp() {
@@ -182,8 +198,23 @@ async function initializeApp() {
             if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'block';
             if (dom.restoreSessionBtn) {
                 dom.restoreSessionBtn.onclick = async () => {
-                    await loadFilesIntoApp(storedFiles);
-                    dom.restoreSessionContainer.style.display = 'none';
+                    // **變更點 3: 恢復工作階段時，也需要將 File 轉換成我們的新資料格式**
+                    const readFileAsBuffer = (file) => {
+                        return new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve({ name: file.name, type: file.type, buffer: reader.result });
+                            reader.onerror = (error) => reject(error);
+                            reader.readAsArrayBuffer(file);
+                        });
+                    };
+                    try {
+                        const loadedFileData = await Promise.all(storedFiles.map(readFileAsBuffer));
+                        await loadFilesIntoApp(loadedFileData);
+                        dom.restoreSessionContainer.style.display = 'none';
+                    } catch (error) {
+                         showFeedback("恢復工作階段失敗。");
+                         console.error("Error restoring session:", error);
+                    }
                 };
             }
         }
