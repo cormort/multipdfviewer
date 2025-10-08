@@ -1,4 +1,4 @@
-import { dom, appState } from './app.js';
+import { dom, appState } from './state.js';
 import { updatePageControls } from './ui.js';
 import { getEventPosition, showFeedback } from './utils.js';
 import { currentPageTextContent, currentViewport } from './viewer.js';
