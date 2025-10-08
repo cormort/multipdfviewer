@@ -10,41 +10,32 @@ let localMagnifierEnabled = false;
 const LOCAL_MAGNIFIER_SIZE = 120;
 let localMagnifierZoomLevel = 2.0;
 
-export async function loadAndProcessFiles(files) {
-    if (!files || files.length === 0) return null;
+export async function loadAndProcessFiles(loadedFileData) {
+    if (!loadedFileData || loadedFileData.length === 0) return null;
 
     if (typeof pdfjsLib === 'undefined') {
-        alert('PDF library failed to load. Please refresh the page or check your internet connection.');
+        alert('PDF library failed to load.');
         return null;
     }
     
     deactivateAllModes();
     
-    const pdfFiles = Array.from(files).filter(file => file && file.type === 'application/pdf');
-
-    const loadingPromises = pdfFiles.map(file => {
+    const loadingPromises = loadedFileData.map(item => {
         return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = function() {
-                // **變更點 1: 'this.result' 是我們的原始 ArrayBuffer，必須先保存下來！**
-                const originalBuffer = this.result;
-                
-                // **變更點 2: 建立一個原始 Buffer 的副本，專門給 pdf.js 使用。**
-                // .slice(0) 是複製 ArrayBuffer 的標準且高效的方法。
-                const bufferForPdfjs = originalBuffer.slice(0);
-                
-                // **變更點 3: 現在我們用副本來建立 Uint8Array，並傳給 pdf.js。**
-                const typedarrayForPdfjs = new Uint8Array(bufferForPdfjs);
-                
-                pdfjsLib.getDocument({ data: typedarrayForPdfjs, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
-                    // **變更點 4: 當 Promise 完成時，我們 resolve 的是「原始」的 Buffer，而不是被分離的副本。**
-                    resolve({ pdf: pdf, name: file.name, buffer: originalBuffer });
-                }).catch(reason => {
-                    console.error(`Error loading ${file.name}:`, reason);
-                    resolve(null);
-                });
-            };
-            reader.readAsArrayBuffer(file);
+            // **變更點 1: 不再需要 FileReader，直接使用傳入的 buffer**
+            const originalBuffer = item.buffer;
+            
+            // 複製 buffer 給 pdf.js 使用，保留原始 buffer
+            const bufferForPdfjs = originalBuffer.slice(0);
+            const typedarrayForPdfjs = new Uint8Array(bufferForPdfjs);
+            
+            pdfjsLib.getDocument({ data: typedarrayForPdfjs, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
+                // 將原始 buffer 傳下去
+                resolve({ pdf: pdf, name: item.name, buffer: originalBuffer });
+            }).catch(reason => {
+                console.error(`Error loading ${item.name}:`, reason);
+                resolve(null);
+            });
         });
     });
 
@@ -59,7 +50,6 @@ export async function loadAndProcessFiles(files) {
 
     loadedPdfs.forEach((result, docIndex) => {
         newPdfDocs.push(result.pdf);
-        // 這段迴圈可以簡化
         for (let i = 1; i <= result.pdf.numPages; i++) {
             newPageMap.push({ docIndex: docIndex, localPage: i, docName: result.name });
         }
