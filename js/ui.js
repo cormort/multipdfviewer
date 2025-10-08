@@ -82,7 +82,15 @@ export function initEventHandlers() {
     // Recompose PDF
     dom.recomposePdfBtn.addEventListener('click', showRecomposePanel);
     dom.closeRecomposePanelBtn.addEventListener('click', hideRecomposePanel);
-    dom.generateNewPdfBtn.addEventListener('click', generateNewPdf);
+    dom.generateNewPdfBtn.addEventListener('click', () => {
+        const defaultName = "重新組成文件";
+        const newName = prompt("請輸入新 PDF 的檔案名稱：", defaultName);
+        
+        // 如果用戶點擊 "取消" (prompt 返回 null)，則不執行任何操作
+        if (newName !== null) {
+            triggerGeneratePdf(newName.trim() || defaultName);
+        }
+    });
 
     // Window Resize
     let resizeTimeout;
