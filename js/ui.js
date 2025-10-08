@@ -4,8 +4,7 @@ import { goToPage, renderPage, toggleLocalMagnifier, updateMagnifierZoomLevel } 
 import { searchKeyword, rerenderAllThumbnails } from './search.js';
 import { showFeedback, getPatternFromSearchInput } from './utils.js';
 import { toggleHighlighter, toggleTextSelection, toggleParagraphSelection, startDrawing, draw, stopDrawing, handleParagraphSelection } from './annotation.js';
-import { showRecomposePanel, hideRecomposePanel, generateNewPdf } from './recompose.js';
-
+import { showRecomposePanel, hideRecomposePanel, triggerGeneratePdf } from './recompose.js';
 export function initEventHandlers() {
     // File and Session
     dom.fileInput.addEventListener('change', handleFileSelect);
