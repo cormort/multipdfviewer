@@ -1,4 +1,5 @@
-import { dom, appState, resetAppState, handleFileSelect } from './app.js';
+import { dom, appState, resetAppState } from './state.js';
+import { handleFileSelect } from './app.js';
 import { goToPage, renderPage, toggleLocalMagnifier, updateMagnifierZoomLevel } from './viewer.js';
 import { searchKeyword, rerenderAllThumbnails } from './search.js';
 import { showFeedback, getPatternFromSearchInput } from './utils.js';
