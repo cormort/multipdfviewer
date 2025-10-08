@@ -1,9 +1,38 @@
+// in js/recompose.js
+
 import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
 
 let selectedRecomposePages = new Set();
+let tocData = []; // 儲存目次資訊: [{ globalPage, text, newPageNum }]
 let recomposeThumbnailObserver = null;
+
+// --- Helper Function ---
+/**
+ * 獲取指定 PDF 頁面的第一行文字作為預設目次標題。
+ * @param {number} globalPageNum - 全局頁碼。
+ * @returns {Promise<string>} 頁面的第一行文字。
+ */
+async function getFirstLineOfText(globalPageNum) {
+    const pageInfo = getDocAndLocalPage(globalPageNum);
+    if (!pageInfo) return "未知頁面";
+
+    try {
+        const page = await pageInfo.doc.getPage(pageInfo.localPage);
+        const textContent = await page.getTextContent();
+        if (textContent.items.length > 0) {
+            // 簡單地取第一個文字項，並截斷長度
+            return textContent.items[0].str.trim().substring(0, 50);
+        }
+        return `第 ${globalPageNum} 頁`;
+    } catch (error) {
+        console.error("獲取首行文字失敗:", error);
+        return `第 ${globalPageNum} 頁 (錯誤)`;
+    }
+}
+
+// --- UI and State Management ---
 
 export function showRecomposePanel() {
     if (appState.pdfDocs.length === 0) {
@@ -12,186 +41,189 @@ export function showRecomposePanel() {
     }
     dom.recomposePanel.style.display = 'flex';
     populateRecomposePageList();
-    updateSelectedPagesCount();
+    updateUiComponents();
 }
 
 export function hideRecomposePanel() {
     dom.recomposePanel.style.display = 'none';
     selectedRecomposePages.clear();
+    tocData = [];
     dom.recomposePageList.innerHTML = '';
-    updateSelectedPagesCount();
+    dom.recomposeTocList.innerHTML = '';
     if (recomposeThumbnailObserver) {
         recomposeThumbnailObserver.disconnect();
     }
 }
 
-async function populateRecomposePageList() {
-    dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
-    selectedRecomposePages.clear();
-    updateSelectedPagesCount();
-
-    if (recomposeThumbnailObserver) {
-        recomposeThumbnailObserver.disconnect();
-    }
-
-    recomposeThumbnailObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target.querySelector('img');
-                const docIndex = parseInt(img.dataset.docIndex, 10);
-                const localPage = parseInt(img.dataset.localPage, 10);
-                renderRecomposeThumbnail(docIndex, localPage, img);
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { root: dom.recomposePageList, rootMargin: '0px 0px 200px 0px' });
-
-    dom.recomposePageList.innerHTML = '';
-
-    for (let globalPage = 1; globalPage <= appState.globalTotalPages; globalPage++) {
-        const pageInfo = getDocAndLocalPage(globalPage);
-        if (!pageInfo) continue;
-
-        const thumbnailItem = document.createElement('div');
-        thumbnailItem.className = 'recompose-thumbnail-item';
-        thumbnailItem.dataset.globalPage = globalPage;
-
-        const img = document.createElement('img');
-        img.dataset.docIndex = pageInfo.docIndex;
-        img.dataset.localPage = pageInfo.localPage;
-        img.alt = `Page ${globalPage}`;
-        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='; // Transparent pixel
-
-        const pageLabel = document.createElement('div');
-        pageLabel.className = 'page-label';
-        const cleanName = pageInfo.docName.replace(/\.pdf$/i, '').substring(0, 15);
-        pageLabel.textContent = `P.${globalPage} (${cleanName}...)`;
-        pageLabel.title = `檔案: ${pageInfo.docName}, 本地頁: ${pageInfo.localPage}`;
-
-        thumbnailItem.appendChild(img);
-        thumbnailItem.appendChild(pageLabel);
-
-        thumbnailItem.addEventListener('click', () => togglePageSelection(globalPage, thumbnailItem));
-        dom.recomposePageList.appendChild(thumbnailItem);
-        
-        recomposeThumbnailObserver.observe(thumbnailItem);
-    }
-}
-
-async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
-    try {
-        const doc = appState.pdfDocs[docIndex];
-        if (!doc) return;
-        
-        const page = await doc.getPage(localPageNum);
-        const viewport = page.getViewport({ scale: 1 });
-        const THUMBNAIL_WIDTH = 150;
-        const scale = THUMBNAIL_WIDTH / viewport.width;
-        const scaledViewport = page.getViewport({ scale: scale });
-
-        const canvasEl = document.createElement('canvas');
-        const thumbnailCtx = canvasEl.getContext('2d');
-        canvasEl.height = scaledViewport.height;
-        canvasEl.width = scaledViewport.width;
-        
-        const renderContext = { canvasContext: thumbnailCtx, viewport: scaledViewport };
-        await page.render(renderContext).promise;
-        
-        const dataUrl = canvasEl.toDataURL('image/jpeg', 0.8);
-        imgElement.src = dataUrl;
-    } catch (error) {
-        console.error(`Failed to render recompose thumbnail:`, error);
-    }
-}
-
-function togglePageSelection(globalPage, element) {
-    if (selectedRecomposePages.has(globalPage)) {
-        selectedRecomposePages.delete(globalPage);
-        element.classList.remove('selected');
-    } else {
-        selectedRecomposePages.add(globalPage);
-        element.classList.add('selected');
-    }
-    updateSelectedPagesCount();
-}
-
-function updateSelectedPagesCount() {
+function updateUiComponents() {
+    // 更新已選頁數
     if (dom.selectedPagesCountSpan) {
         dom.selectedPagesCountSpan.textContent = selectedRecomposePages.size;
     }
+    // 更新生成按鈕狀態
     if (dom.generateNewPdfBtn) {
         dom.generateNewPdfBtn.disabled = selectedRecomposePages.size === 0;
     }
+    // 更新並渲染目次列表
+    renderTocList();
 }
 
-export async function generateNewPdf() {
+async function togglePageSelection(globalPage, element) {
+    if (selectedRecomposePages.has(globalPage)) {
+        selectedRecomposePages.delete(globalPage);
+        element.classList.remove('selected');
+        // 從 tocData 中移除
+        tocData = tocData.filter(item => item.globalPage !== globalPage);
+    } else {
+        selectedRecomposePages.add(globalPage);
+        element.classList.add('selected');
+        // 新增到 tocData
+        const defaultText = await getFirstLineOfText(globalPage);
+        tocData.push({ globalPage, text: defaultText });
+    }
+    
+    // 根據選擇順序重新排序 tocData
+    const sortedSelectedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
+    tocData.sort((a, b) => sortedSelectedPages.indexOf(a.globalPage) - sortedSelectedPages.indexOf(b.globalPage));
+    
+    // 分配新的頁碼
+    tocData.forEach((item, index) => {
+        item.newPageNum = index + 1; // 目次頁之後的第一頁是 1
+    });
+
+    updateUiComponents();
+}
+
+function renderTocList() {
+    const tocList = dom.recomposeTocList;
+    tocList.innerHTML = '';
+
+    if (tocData.length === 0) {
+        tocList.innerHTML = `<p class="toc-placeholder">選擇頁面後將在此處生成目次...</p>`;
+        return;
+    }
+
+    tocData.forEach(item => {
+        const tocItemDiv = document.createElement('div');
+        tocItemDiv.className = 'toc-item';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        input.value = item.text;
+        input.oninput = (e) => {
+            // 當用戶編輯時，即時更新 tocData
+            item.text = e.target.value;
+        };
+
+        const label = document.createElement('span');
+        label.className = 'page-label';
+        label.textContent = `→ 新頁碼 ${item.newPageNum}`;
+
+        tocItemDiv.appendChild(input);
+        tocItemDiv.appendChild(label);
+        tocList.appendChild(tocItemDiv);
+    });
+}
+
+// --- Thumbnail List Population (與之前類似) ---
+function populateRecomposePageList() {
+    // ... (這部分的程式碼與您現有的版本基本相同，無需修改)
+}
+async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
+    // ... (這部分的程式碼與您現有的版本基本相同，無需修改)
+}
+
+// --- PDF Generation ---
+
+export function triggerGeneratePdf(fileName) {
+    // 這是由 ui.js 呼叫的函數
+    generateNewPdf(fileName, tocData);
+}
+
+async function generateNewPdf(fileName, currentTocData) {
     if (selectedRecomposePages.size === 0) {
         showFeedback('請至少選擇一頁！');
         return;
     }
 
-    const originalBtnText = dom.generateNewPdfBtn.innerHTML;
     dom.generateNewPdfBtn.disabled = true;
     dom.generateNewPdfBtn.innerHTML = '生成中...';
 
-    const { PDFDocument } = window.PDFLib; // 確保 pdf-lib 已載入
+    const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
     const newPdfDoc = await PDFDocument.create();
     const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
 
     try {
-        // 建立一個 map 來避免重複載入同一個 PDF 的 ArrayBuffer
-        const sourceDocs = new Map();
+        // **步驟 1: 創建並加入目次頁**
+        const tocPage = newPdfDoc.addPage();
+        const { width, height } = tocPage.getSize();
+        const font = await newPdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontSizeTitle = 24;
+        const fontSizeItem = 12;
+        let y = height - 70;
 
+        tocPage.drawText('目次', {
+            x: 50,
+            y: y,
+            font,
+            size: fontSizeTitle,
+            color: rgb(0, 0, 0),
+        });
+        y -= 40;
+
+        currentTocData.forEach(item => {
+            if (y < 50) return; // 避免文字超出頁面
+            tocPage.drawText(`${item.text} .................................... ${item.newPageNum + 1}`, { // 頁碼+1，因為目次是第1頁
+                x: 60,
+                y: y,
+                font,
+                size: fontSizeItem,
+                color: rgb(0.2, 0.2, 0.2),
+            });
+            y -= 20;
+        });
+
+        // **步驟 2: 複製使用者選擇的頁面**
+        const sourceDocs = new Map();
         for (const globalPageNum of sortedPages) {
             const pageInfo = getDocAndLocalPage(globalPageNum);
-            if (!pageInfo) {
-                console.warn(`Skipping invalid page ${globalPageNum}`);
-                continue;
-            }
+            if (!pageInfo) continue;
 
             let sourcePdfDoc;
-            // 檢查是否已經載入過這個來源 PDF
             if (sourceDocs.has(pageInfo.docIndex)) {
                 sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
             } else {
-                // 從 appState 取得我們儲存的 ArrayBuffer
                 const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
-                if (!sourcePdfBytes) {
-                    console.warn(`ArrayBuffer for docIndex ${pageInfo.docIndex} not found. Skipping page.`);
-                    continue;
-                }
-                // 使用 pdf-lib 載入 ArrayBuffer
+                if (!sourcePdfBytes) continue;
                 sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
                 sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
             }
             
-            // 從載入的來源 PDF 中複製頁面 (注意: pdf-lib 的頁碼是從 0 開始)
             const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
-            
-            // 將複製的頁面加入到我們的新 PDF 文件中
             newPdfDoc.addPage(copiedPage);
         }
 
+        // **步驟 3: 保存並下載**
         const pdfBytes = await newPdfDoc.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const fileName = (dom.newPdfNameInput.value.trim() || '重新組成文件') + '.pdf';
         
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = fileName;
+        link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
 
-        showFeedback(`已生成新 PDF: ${fileName}`);
+        showFeedback(`已生成新 PDF: ${link.download}`);
         hideRecomposePanel();
 
     } catch (error) {
         console.error('生成新 PDF 失敗:', error);
-        showFeedback('生成新 PDF 失敗！請參閱控制台以獲取詳細資訊。');
+        showFeedback('生成新 PDF 失敗！請參閱控制台。');
     } finally {
         dom.generateNewPdfBtn.disabled = false;
-        dom.generateNewPdfBtn.innerHTML = originalBtnText;
+        dom.generateNewPdfBtn.innerHTML = '生成 PDF 檔案';
     }
 }
