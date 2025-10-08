@@ -82,6 +82,10 @@ export function getDocAndLocalPage(globalPage) {
 }
 
 export function renderPage(globalPageNum, highlightPattern = null) {
+
+    // --- ↓↓↓ 在這裡加入 console.log ↓↓↓ ---
+    console.log(`準備渲染頁面，頁碼: ${globalPageNum}`);
+    
     if (appState.pdfDocs.length === 0 || !dom.pdfContainer || !dom.canvas || !dom.ctx) return;
     if (pageRendering) return;
 
