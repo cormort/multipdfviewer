@@ -198,13 +198,13 @@ async function initializeApp() {
             if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'block';
             if (dom.restoreSessionBtn) {
                 dom.restoreSessionBtn.onclick = async () => {
-                    // **變更點 3: 恢復工作階段時，也需要將 File 轉換成我們的新資料格式**
-                    const readFileAsBuffer = (file) => {
+                    // **確認這段邏輯**
+                    const readFileAsBuffer = (file) => { // file 是從 IndexedDB 取出的 File 物件
                         return new Promise((resolve, reject) => {
                             const reader = new FileReader();
                             reader.onload = () => resolve({ name: file.name, type: file.type, buffer: reader.result });
                             reader.onerror = (error) => reject(error);
-                            reader.readAsArrayBuffer(file);
+                            reader.readAsArrayBuffer(file); // 這裡傳入的也是 file，正確！
                         });
                     };
                     try {
