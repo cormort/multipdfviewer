@@ -94,6 +94,7 @@ export let appState = {
     textSelectionModeActive: false,
     paragraphSelectionModeActive: false,
     localMagnifierEnabled: false,
+    pdfArrayBuffers: [],
 };
 
 export function resetAppState() {
@@ -111,6 +112,7 @@ export function resetAppState() {
         textSelectionModeActive: false,
         paragraphSelectionModeActive: false,
         localMagnifierEnabled: false,
+        pdfArrayBuffers: [],
     };
     if (dom.searchInputElem) dom.searchInputElem.value = '';
     // Also clear localStorage thumbnails if any
@@ -153,6 +155,7 @@ async function loadFilesIntoApp(files) {
     appState.pdfDocs = loadedData.pdfDocs;
     appState.pageMap = loadedData.pageMap;
     appState.globalTotalPages = loadedData.globalTotalPages;
+    appState.pdfArrayBuffers = loadedData.pdfArrayBuffers;
     
     Viewer.renderPage(1); // Render the first page
     UI.updateUIForNewState(); // Update UI with new file data
