@@ -43,35 +43,31 @@ function getDB() {
     return _dbInstance;
 }
 
-export function saveFiles(files) {
+export function saveFiles(loadedFileData) {
   return new Promise((resolve, reject) => {
     try {
         const db = getDB();
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         
+        transaction.oncomplete = () => resolve(); // 簡化完成處理
         transaction.onerror = (event) => reject('Transaction error: ' + event.target.error);
 
         const clearRequest = store.clear();
         clearRequest.onerror = (event) => reject('Failed to clear old files: ' + event.target.error);
         
         clearRequest.onsuccess = () => {
-            if (!files || files.length === 0) {
-                return resolve();
+            if (!loadedFileData || loadedFileData.length === 0) {
+                return; // 清除完成後直接結束
             }
 
-            let completedAdds = 0;
-            files.forEach(file => {
-                const addRequest = store.add({ file });
-                addRequest.onsuccess = () => {
-                    completedAdds++;
-                    if (completedAdds === files.length) {
-                        resolve();
-                    }
-                };
+            // **變更點: 從 buffer 重建 File 物件來儲存**
+            loadedFileData.forEach(item => {
+                const fileToStore = new File([item.buffer], item.name, { type: item.type });
+                const addRequest = store.add({ file: fileToStore });
                 addRequest.onerror = (event) => {
                     console.error('Could not add file to store', event.target.error);
-                    reject('Failed to add a file: ' + event.target.error);
+                    // 即使單一檔案失敗，也先不中斷整個事務
                 };
             });
         };
@@ -80,7 +76,6 @@ export function saveFiles(files) {
     }
   });
 }
-
 export function getFiles() {
   return new Promise((resolve, reject) => {
     try {
