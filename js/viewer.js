@@ -26,13 +26,19 @@ export async function loadAndProcessFiles(files) {
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = function() {
-                const typedarray = new Uint8Array(this.result);
-                // **變更點 1: 將 this.result (ArrayBuffer) 也傳遞下去**
-                const arrayBuffer = this.result; 
+                // **變更點 1: 'this.result' 是我們的原始 ArrayBuffer，必須先保存下來！**
+                const originalBuffer = this.result;
                 
-                pdfjsLib.getDocument({ data: typedarray, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
-                    // **變更點 2: resolve 物件中包含 buffer**
-                    resolve({ pdf: pdf, name: file.name, buffer: arrayBuffer });
+                // **變更點 2: 建立一個原始 Buffer 的副本，專門給 pdf.js 使用。**
+                // .slice(0) 是複製 ArrayBuffer 的標準且高效的方法。
+                const bufferForPdfjs = originalBuffer.slice(0);
+                
+                // **變更點 3: 現在我們用副本來建立 Uint8Array，並傳給 pdf.js。**
+                const typedarrayForPdfjs = new Uint8Array(bufferForPdfjs);
+                
+                pdfjsLib.getDocument({ data: typedarrayForPdfjs, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
+                    // **變更點 4: 當 Promise 完成時，我們 resolve 的是「原始」的 Buffer，而不是被分離的副本。**
+                    resolve({ pdf: pdf, name: file.name, buffer: originalBuffer });
                 }).catch(reason => {
                     console.error(`Error loading ${file.name}:`, reason);
                     resolve(null);
@@ -49,21 +55,17 @@ export async function loadAndProcessFiles(files) {
 
     const newPdfDocs = [];
     const newPageMap = [];
-    // **變更點 3: 建立一個新的 array 來儲存 buffers**
     const newPdfArrayBuffers = []; 
 
     loadedPdfs.forEach((result, docIndex) => {
         newPdfDocs.push(result.pdf);
-        newPageMap.push(...Array.from({ length: result.pdf.numPages }, (_, i) => ({
-            docIndex: docIndex,
-            localPage: i + 1,
-            docName: result.name
-        })));
-        // **變更點 4: 將 buffer 存入新陣列**
+        // 這段迴圈可以簡化
+        for (let i = 1; i <= result.pdf.numPages; i++) {
+            newPageMap.push({ docIndex: docIndex, localPage: i, docName: result.name });
+        }
         newPdfArrayBuffers.push(result.buffer);
     });
 
-    // **變更點 5: 在返回的物件中新增 pdfArrayBuffers**
     return {
         pdfDocs: newPdfDocs,
         pageMap: newPageMap,
@@ -71,7 +73,6 @@ export async function loadAndProcessFiles(files) {
         pdfArrayBuffers: newPdfArrayBuffers 
     };
 }
-
 
 export function getDocAndLocalPage(globalPage) {
     if (globalPage < 1 || globalPage > appState.globalTotalPages || appState.pageMap.length === 0) return null;
