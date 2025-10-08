@@ -10,7 +10,7 @@ import { showFeedback } from './utils.js';
 
 // **變更點 2: dom 和 appState 的定義已移至 state.js，這裡不再需要它們**
 
-async function handleFileSelect(e) {
+export async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
@@ -73,7 +73,7 @@ async function initializeApp() {
     }
 
     // **變更點 3: 將 handleFileSelect 作為回呼函數傳遞給 UI 模組**
-    UI.initEventHandlers(handleFileSelect);
+    UI.initEventHandlers();
     Viewer.initLocalMagnifier();
     Search.initThumbnailObserver();
     UI.updateUIForNewState();
