@@ -289,7 +289,7 @@ body {
     align-items: flex-start;
     padding: 24px;
     position: relative;
-    background-color: var(--dark-bg-color);
+    background-color: var(--background-color);
 }
 
 #pdf-canvas {
@@ -470,7 +470,7 @@ body {
     background-color: var(--surface-color);
     border-radius: 12px;
     width: 90vw;
-    max-width: 900px;
+    max-width: 1000px; /* 增加最大寬度 */
     height: 90vh;
     display: flex;
     flex-direction: column;
@@ -494,93 +494,91 @@ body {
 
 .modal-body {
     flex-grow: 1;
-    overflow-y: auto;
+    overflow: hidden; /* 重要的改變 */
+    display: flex; /* 使用 Flexbox 佈局 */
+    gap: 16px;
     padding: 24px;
 }
 
-.recompose-controls {
+.recompose-selection-pane {
+    flex: 1;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 24px;
-    border-bottom: 1px dashed var(--border-color);
+    flex-direction: column;
+    min-width: 0; /* 確保內容不會溢出 */
 }
 
-.recompose-controls label {
+.recompose-toc-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* 確保內容不會溢出 */
+}
+
+.recompose-selection-pane h4,
+.recompose-toc-pane h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1rem;
     font-weight: 600;
-}
-
-.recompose-controls input[type="text"] {
-    flex-grow: 1;
-}
-
-.selection-status {
-    margin-left: auto;
-    font-size: 0.9em;
     color: var(--text-secondary-color);
 }
 
-.thumbnail-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 16px;
-}
-
-.recompose-thumbnail-item {
-    cursor: pointer;
-    border: 2px solid transparent;
+#recompose-page-list {
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    overflow: hidden;
-    transition: all 0.2s ease;
-    background-color: var(--surface-alt-color);
-    box-shadow: var(--shadow-sm);
-    position: relative;
+    padding: 12px;
+    overflow-y: auto;
+    flex-grow: 1;
 }
 
-.recompose-thumbnail-item:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+.toc-list {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    overflow-y: auto;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.recompose-thumbnail-item.selected {
-    border-color: var(--primary-color);
+.toc-placeholder {
+    color: var(--text-secondary-color);
+    text-align: center;
+    margin: auto;
 }
-.recompose-thumbnail-item.selected::after {
-    content: '\\f00c'; /* Font Awesome check */
-    font-family: 'Font Awesome 5 Free';
-    font-weight: 900;
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    color: white;
-    background-color: var(--primary-color);
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
+
+.toc-item {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
 }
 
-.recompose-thumbnail-item img {
-    width: 100%;
-    height: auto;
-    display: block;
-    background-color: #e9ecef;
+.toc-item input[type="text"] {
+    flex-grow: 1;
+    font-size: 0.9em;
+    padding: 6px 8px;
 }
 
-.recompose-thumbnail-item .page-label {
-    padding: 8px;
-    font-size: 0.75rem;
-    text-align: center;
+.toc-item .page-label {
+    font-size: 0.9em;
+    color: var(--text-secondary-color);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-shrink: 0;
 }
 
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.modal-footer .selection-status {
+    margin-right: auto; /* Push buttons to the right */
+}
 
 /* --- Responsive Design --- */
 @media (max-width: 768px) {
