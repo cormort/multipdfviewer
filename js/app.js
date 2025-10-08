@@ -43,6 +43,11 @@ async function loadFilesIntoApp(loadedFileData) {
     UI.updateUIForNewState();
     
     const loadedData = await Viewer.loadAndProcessFiles(loadedFileData);
+
+    // --- ↓↓↓ 在這裡加入 console.log ↓↓↓ ---
+    console.log("從 viewer.js 返回的已處理數據:", loadedData);
+
+    
     if (!loadedData) {
         showFeedback('未載入任何有效的 PDF 檔案。');
         resetAppState();
