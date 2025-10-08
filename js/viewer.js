@@ -10,60 +10,40 @@ let localMagnifierEnabled = false;
 const LOCAL_MAGNIFIER_SIZE = 120;
 let localMagnifierZoomLevel = 2.0;
 
-export async function loadAndProcessFiles(loadedFileData) {
-    if (!loadedFileData || loadedFileData.length === 0) return null;
+export async function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    if (typeof pdfjsLib === 'undefined') {
-        alert('PDF library failed to load.');
-        return null;
-    }
-    
-    deactivateAllModes();
-    
-    const loadingPromises = loadedFileData.map(item => {
-        return new Promise((resolve) => {
-            // **變更點 1: 不再需要 FileReader，直接使用傳入的 buffer**
-            const originalBuffer = item.buffer;
-            
-            // 複製 buffer 給 pdf.js 使用，保留原始 buffer
-            const bufferForPdfjs = originalBuffer.slice(0);
-            const typedarrayForPdfjs = new Uint8Array(bufferForPdfjs);
-            
-            pdfjsLib.getDocument({ data: typedarrayForPdfjs, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
-                // 將原始 buffer 傳下去
-                resolve({ pdf: pdf, name: item.name, buffer: originalBuffer });
-            }).catch(reason => {
-                console.error(`Error loading ${item.name}:`, reason);
-                resolve(null);
+    // 步驟 1: 集中讀取所有原始 File 物件
+    const readFileAsBuffer = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({
+                name: file.name,
+                type: file.type,
+                buffer: reader.result
             });
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file); // 這裡傳入的是 file，是 Blob 類型，正確！
         });
-    });
-
-    const results = await Promise.all(loadingPromises);
-    const loadedPdfs = results.filter(r => r !== null);
-    
-    if (loadedPdfs.length === 0) return null;
-
-    const newPdfDocs = [];
-    const newPageMap = [];
-    const newPdfArrayBuffers = []; 
-
-    loadedPdfs.forEach((result, docIndex) => {
-        newPdfDocs.push(result.pdf);
-        for (let i = 1; i <= result.pdf.numPages; i++) {
-            newPageMap.push({ docIndex: docIndex, localPage: i, docName: result.name });
-        }
-        newPdfArrayBuffers.push(result.buffer);
-    });
-
-    return {
-        pdfDocs: newPdfDocs,
-        pageMap: newPageMap,
-        globalTotalPages: newPageMap.length,
-        pdfArrayBuffers: newPdfArrayBuffers 
     };
-}
 
+    try {
+        // 等待所有檔案都讀取完成
+        const loadedFileData = await Promise.all(files.map(readFileAsBuffer));
+
+        // 步驟 2: 使用讀取好的資料進行儲存
+        await saveFiles(loadedFileData);
+        if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'none';
+
+        // 步驟 3: 使用讀取好的資料載入到 App
+        await loadFilesIntoApp(loadedFileData);
+
+    } catch (error) {
+        console.error("處理檔案時發生錯誤:", error);
+        showFeedback("讀取或儲存檔案時出錯。");
+    }
+}
 export function getDocAndLocalPage(globalPage) {
     if (globalPage < 1 || globalPage > appState.globalTotalPages || appState.pageMap.length === 0) return null;
     const mapping = appState.pageMap[globalPage - 1];
