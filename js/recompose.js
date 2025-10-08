@@ -134,33 +134,42 @@ export async function generateNewPdf() {
     dom.generateNewPdfBtn.disabled = true;
     dom.generateNewPdfBtn.innerHTML = '生成中...';
 
-    const { PDFDocument } = window.PDFLib;
+    const { PDFDocument } = window.PDFLib; // 確保 pdf-lib 已載入
     const newPdfDoc = await PDFDocument.create();
     const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
 
     try {
+        // 建立一個 map 來避免重複載入同一個 PDF 的 ArrayBuffer
+        const sourceDocs = new Map();
+
         for (const globalPageNum of sortedPages) {
             const pageInfo = getDocAndLocalPage(globalPageNum);
-            if (!pageInfo) continue;
+            if (!pageInfo) {
+                console.warn(`Skipping invalid page ${globalPageNum}`);
+                continue;
+            }
 
-            const { doc, localPage } = pageInfo;
+            let sourcePdfDoc;
+            // 檢查是否已經載入過這個來源 PDF
+            if (sourceDocs.has(pageInfo.docIndex)) {
+                sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
+            } else {
+                // 從 appState 取得我們儲存的 ArrayBuffer
+                const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
+                if (!sourcePdfBytes) {
+                    console.warn(`ArrayBuffer for docIndex ${pageInfo.docIndex} not found. Skipping page.`);
+                    continue;
+                }
+                // 使用 pdf-lib 載入 ArrayBuffer
+                sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
+                sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
+            }
             
-            // Note: `doc` here is a pdf.js document object. pdf-lib needs the raw ArrayBuffer.
-            // This is a limitation of the current structure. A better approach would be to store
-            // the original ArrayBuffer of each PDF when loaded.
-            // For now, let's assume we cannot do this without major refactoring.
-            // THE FOLLOWING CODE WILL NOT WORK AS INTENDED without the original ArrayBuffer.
-            // I'll leave a placeholder for the correct logic.
-            // To make this work, you must modify `loadAndProcessFiles` to store the ArrayBuffer.
+            // 從載入的來源 PDF 中複製頁面 (注意: pdf-lib 的頁碼是從 0 開始)
+            const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
             
-            showFeedback("錯誤：重新生成 PDF 需要對架構進行重大修改以保留原始文件數據。此功能當前為佔位符。", 5000);
-            throw new Error("Recomposition requires storing original file ArrayBuffers, which is not currently implemented.");
-            
-            // **Correct Logic (if ArrayBuffer was stored):**
-            // const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
-            // const sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
-            // const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [localPage - 1]);
-            // newPdfDoc.addPage(copiedPage);
+            // 將複製的頁面加入到我們的新 PDF 文件中
+            newPdfDoc.addPage(copiedPage);
         }
 
         const pdfBytes = await newPdfDoc.save();
