@@ -1,4 +1,4 @@
-import { dom, appState } from './app.js';
+import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
 
