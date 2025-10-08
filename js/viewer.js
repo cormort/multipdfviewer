@@ -20,7 +20,6 @@ export async function loadAndProcessFiles(files) {
     
     deactivateAllModes();
     
-    // Convert FileList to Array and filter for PDFs
     const pdfFiles = Array.from(files).filter(file => file && file.type === 'application/pdf');
 
     const loadingPromises = pdfFiles.map(file => {
@@ -28,11 +27,15 @@ export async function loadAndProcessFiles(files) {
             const reader = new FileReader();
             reader.onload = function() {
                 const typedarray = new Uint8Array(this.result);
+                // **變更點 1: 將 this.result (ArrayBuffer) 也傳遞下去**
+                const arrayBuffer = this.result; 
+                
                 pdfjsLib.getDocument({ data: typedarray, isEvalSupported: false, enableXfa: false }).promise.then(pdf => {
-                    resolve({ pdf: pdf, name: file.name });
+                    // **變更點 2: resolve 物件中包含 buffer**
+                    resolve({ pdf: pdf, name: file.name, buffer: arrayBuffer });
                 }).catch(reason => {
                     console.error(`Error loading ${file.name}:`, reason);
-                    resolve(null); // Resolve with null on error
+                    resolve(null);
                 });
             };
             reader.readAsArrayBuffer(file);
@@ -46,17 +49,26 @@ export async function loadAndProcessFiles(files) {
 
     const newPdfDocs = [];
     const newPageMap = [];
+    // **變更點 3: 建立一個新的 array 來儲存 buffers**
+    const newPdfArrayBuffers = []; 
+
     loadedPdfs.forEach((result, docIndex) => {
         newPdfDocs.push(result.pdf);
-        for (let i = 1; i <= result.pdf.numPages; i++) {
-            newPageMap.push({ docIndex: docIndex, localPage: i, docName: result.name });
-        }
+        newPageMap.push(...Array.from({ length: result.pdf.numPages }, (_, i) => ({
+            docIndex: docIndex,
+            localPage: i + 1,
+            docName: result.name
+        })));
+        // **變更點 4: 將 buffer 存入新陣列**
+        newPdfArrayBuffers.push(result.buffer);
     });
 
+    // **變更點 5: 在返回的物件中新增 pdfArrayBuffers**
     return {
         pdfDocs: newPdfDocs,
         pageMap: newPageMap,
-        globalTotalPages: newPageMap.length
+        globalTotalPages: newPageMap.length,
+        pdfArrayBuffers: newPdfArrayBuffers 
     };
 }
 
