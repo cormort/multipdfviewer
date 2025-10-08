@@ -1,4 +1,4 @@
-import { dom, appState } from './app.js';
+import { dom, appState } from './state.js';
 import { goToPage, getDocAndLocalPage } from './viewer.js';
 import { updateResultsNav, updateFilterAndResultsUI } from './ui.js';
 import { getPatternFromSearchInput } from './utils.js';
