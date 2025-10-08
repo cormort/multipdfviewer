@@ -169,29 +169,29 @@ export function renderPage(globalPageNum, highlightPattern = null) {
 function renderTextLayer(page, viewport, highlightPattern) {
     return page.getTextContent().then(textContent => {
         currentPageTextContent = textContent;
-        dom.textLayerDivGlobal.innerHTML = '';
-        
-        const textLayer = document.createElement('div');
-        textLayer.className = 'text-layer-inner';
-        dom.textLayerDivGlobal.appendChild(textLayer);
+        dom.textLayerDivGlobal.innerHTML = ''; // 清空舊的圖層
 
+        // pdf.js v4+ 的推薦做法是直接將 textContent 傳遞給 renderTextLayer
+        // 它會自動創建並管理內部的 div 結構
         pdfjsLib.renderTextLayer({
             textContentSource: textContent,
-            container: textLayer,
+            container: dom.textLayerDivGlobal,
             viewport: viewport,
-            textDivs: []
         });
 
+        // 應用我們自訂的高亮
         if (highlightPattern) {
+            // 使用 setTimeout 確保 pdf.js 的 DOM 操作已完成
             setTimeout(() => {
-                const textDivs = textLayer.querySelectorAll('span');
-                textDivs.forEach(textDiv => {
-                    const newContent = textDiv.textContent.replace(highlightPattern, (match) => `<span class="wavy-underline">${match}</span>`);
-                    if (newContent !== textDiv.textContent) {
-                        textDiv.innerHTML = newContent;
+                // pdf.js 會將文字放在 <span> 元素中
+                const textSpans = dom.textLayerDivGlobal.querySelectorAll('span[role="presentation"]');
+                textSpans.forEach(span => {
+                    const newContent = span.innerHTML.replace(highlightPattern, (match) => `<span class="wavy-underline">${match}</span>`);
+                    if (newContent !== span.innerHTML) {
+                        span.innerHTML = newContent;
                     }
                 });
-            }, 100);
+            }, 100); // 100ms 的延遲通常足夠
         }
     }).catch(reason => console.error('Error rendering text layer:', reason));
 }
