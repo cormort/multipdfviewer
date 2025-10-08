@@ -106,6 +106,10 @@ export function renderPage(globalPageNum, highlightPattern = null) {
     const { doc, localPage } = pageInfo;
 
     doc.getPage(localPage).then(page => {
+
+        // --- ↓↓↓ 在這裡加入 console.log ↓↓↓ ---
+        console.log("成功獲取到 PDF 頁面物件:", page);
+
         let scaleForCss;
         if (appState.currentZoomMode === 'width') {
             scaleForCss = (dom.pdfContainer.clientWidth - 48) / page.getViewport({ scale: 1 }).width;
