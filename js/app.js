@@ -1,15 +1,18 @@
 // in js/app.js
 
-// **變更點 1: 從新的 state.js 導入狀態和 DOM**
-import { dom, appState, resetAppState } from './state.js';
+// 從 state.js 導入共享狀態和 DOM 初始化函數
+import { dom, appState, resetAppState, initializeDom } from './state.js';
+// 導入其他模組
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
 import * as Viewer from './viewer.js';
 import * as Search from './search.js';
 import { showFeedback } from './utils.js';
 
-// **變更點 2: dom 和 appState 的定義已移至 state.js，這裡不再需要它們**
-
+/**
+ * 處理用戶選擇的檔案。
+ * @param {Event} e - 檔案輸入框的 change 事件。
+ */
 export async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -38,16 +41,15 @@ export async function handleFileSelect(e) {
     }
 }
 
+/**
+ * 將讀取好的檔案數據載入到應用程式狀態中並觸發渲染。
+ * @param {Array<Object>} loadedFileData - 包含 { name, type, buffer } 的物件陣列。
+ */
 async function loadFilesIntoApp(loadedFileData) {
     resetAppState();
     UI.updateUIForNewState();
     
     const loadedData = await Viewer.loadAndProcessFiles(loadedFileData);
-
-    // --- ↓↓↓ 在這裡加入 console.log ↓↓↓ ---
-    console.log("從 viewer.js 返回的已處理數據:", loadedData);
-
-    
     if (!loadedData) {
         showFeedback('未載入任何有效的 PDF 檔案。');
         resetAppState();
@@ -64,23 +66,30 @@ async function loadFilesIntoApp(loadedFileData) {
     UI.updateUIForNewState();
 }
 
+/**
+ * 應用程式的主初始化函數。
+ */
 async function initializeApp() {
-    async function initializeApp() {
-    // **變更點: 確保這段程式碼在最前面**
+    // 1. 設定 PDF.js 的 worker 路徑
     if (typeof pdfjsLib !== 'undefined') {
-        // 使用與主程式庫相同的 CDN 路徑和版本
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
     } else {
         console.error("pdf.js library is not loaded!");
         return;
     }
 
-    // **變更點 3: 將 handleFileSelect 作為回呼函數傳遞給 UI 模組**
+    // 2. 初始化 DOM 元素的引用
+    initializeDom();
+
+    // 3. 綁定所有事件監聽器
     UI.initEventHandlers();
     Viewer.initLocalMagnifier();
     Search.initThumbnailObserver();
+    
+    // 4. 根據初始狀態更新 UI
     UI.updateUIForNewState();
 
+    // 5. 嘗試從 IndexedDB 恢復工作階段
     try {
         await initDB();
         const storedFiles = await getFiles();
@@ -112,4 +121,5 @@ async function initializeApp() {
     }
 }
 
+// 當 DOM 完全載入後，啟動應用程式
 document.addEventListener('DOMContentLoaded', initializeApp);
