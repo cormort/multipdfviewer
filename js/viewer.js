@@ -112,7 +112,7 @@ export function renderPage(globalPageNum, highlightPattern = null) {
 
         let scaleForCss;
         if (appState.currentZoomMode === 'width') {
-            scaleForCss = (dom.pdfContainer.clientWidth - 48) / page.getViewport({ scale: 1 }).width;
+            scaleForCss = (dom.pdfContainer.clientWidth - 1) / page.getViewport({ scale: 1 }).width;
         } else if (appState.currentZoomMode === 'height') {
             scaleForCss = (dom.pdfContainer.clientHeight - 48) / page.getViewport({ scale: 1 }).height;
         } else {
