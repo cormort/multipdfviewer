@@ -206,7 +206,7 @@ async function generateNewPdf(fileName, currentTocData) {
 
         const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
 
-        const fontUrl = './fonts/TW-Kai-98_1.ttf';
+        const fontUrl = './fonts/SourceHanSansTC-Regular.otf';
         const fontBytes = await fetch(fontUrl).then(res => {
             if (!res.ok) throw new Error(`字體檔案載入失敗: ${res.status}`);
             return res.arrayBuffer();
