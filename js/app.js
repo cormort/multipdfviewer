@@ -1,20 +1,10 @@
-// in js/app.js
-
-import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
-
-// 從 state.js 導入共享狀態和 DOM 初始化函數
+// 從本地模組導入
 import { dom, appState, resetAppState, initializeDom } from './state.js';
-// 導入其他模組
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
 import * as Viewer from './viewer.js';
 import * as Search from './search.js';
 import { showFeedback } from './utils.js';
-
-// **變更點 2: 將 pdfjsLib 傳遞給需要它的模組**
-// (或者更好的方式是，讓每個需要的模組自己導入)
-// 為了簡化，我們先將它附加到 window 物件上，讓其他模組可以訪問
-window.pdfjsLib = pdfjsLib;
 
 /**
  * 處理用戶選擇的檔案。
@@ -77,19 +67,12 @@ async function loadFilesIntoApp(loadedFileData) {
  * 應用程式的主初始化函數。
  */
 async function initializeApp() {
-    // **變更點 3: workerSrc 的設定現在使用導入的 pdfjsLib**
-    if (pdfjsLib) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
+    // 1. 設定 PDF.js 的 worker 路徑 (使用全域變數)
+    if (typeof window.pdfjsLib !== 'undefined') {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
     } else {
-        console.error("pdf.js library failed to load via import!");
-        return;
-    }
-    
-    // 1. 設定 PDF.js 的 worker 路徑
-    if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
-    } else {
-        console.error("pdf.js library is not loaded!");
+        console.error("pdf.js library is not loaded from script tag!");
+        showFeedback("核心 PDF 函式庫載入失敗，請重新整理頁面。");
         return;
     }
 
