@@ -8,7 +8,6 @@ import { showFeedback } from './utils.js';
 
 /**
  * 處理用戶選擇的檔案。
- * @param {Event} e - 檔案輸入框的 change 事件。
  */
 export async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
@@ -17,11 +16,7 @@ export async function handleFileSelect(e) {
     const readFileAsBuffer = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve({
-                name: file.name,
-                type: file.type,
-                buffer: reader.result
-            });
+            reader.onload = () => resolve({ name: file.name, type: file.type, buffer: reader.result });
             reader.onerror = (error) => reject(error);
             reader.readAsArrayBuffer(file);
         });
@@ -40,7 +35,6 @@ export async function handleFileSelect(e) {
 
 /**
  * 將讀取好的檔案數據載入到應用程式狀態中並觸發渲染。
- * @param {Array<Object>} loadedFileData - 包含 { name, type, buffer } 的物件陣列。
  */
 async function loadFilesIntoApp(loadedFileData) {
     resetAppState();
@@ -67,27 +61,21 @@ async function loadFilesIntoApp(loadedFileData) {
  * 應用程式的主初始化函數。
  */
 async function initializeApp() {
-    // 1. 設定 PDF.js 的 worker 路徑 (使用全域變數)
+    // **變更點: 使用全域的 pdfjsLib，並提供 worker 的 CDN 路徑**
     if (typeof window.pdfjsLib !== 'undefined') {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
     } else {
         console.error("pdf.js library is not loaded from script tag!");
         showFeedback("核心 PDF 函式庫載入失敗，請重新整理頁面。");
         return;
     }
 
-    // 2. 初始化 DOM 元素的引用
     initializeDom();
-
-    // 3. 綁定所有事件監聽器
     UI.initEventHandlers();
     Viewer.initLocalMagnifier();
     Search.initThumbnailObserver();
-    
-    // 4. 根據初始狀態更新 UI
     UI.updateUIForNewState();
-
-    // 5. 嘗試從 IndexedDB 恢復工作階段
+    
     try {
         await initDB();
         const storedFiles = await getFiles();
@@ -119,5 +107,4 @@ async function initializeApp() {
     }
 }
 
-// 當 DOM 完全載入後，啟動應用程式
 document.addEventListener('DOMContentLoaded', initializeApp);
