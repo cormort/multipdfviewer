@@ -1,35 +1,14 @@
 // in js/recompose.js
 
 import { dom, appState } from './state.js';
-import { get對此疏忽感到非常抱歉。
-
----
-
-### 解決方案
-
-我們只需要將 `populateRecomposePageListDocAndLocalPage } from './viewer.js';
+import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
 
-` 和 `renderRecomposeThumbnail` 這兩個函數的完整程式碼，放回到 `js/recompose.js` 檔案中即可。
-
----
-
-### 步驟：修改 `js/recompose.js`
-
-請打開您的 `js/recompose.js` 檔案。您會看到裡面有這兩個函數的空殼或註解。
-
-**請用以下完整的程式碼，替換掉您 `js/recompose.js` 檔案中對應的 `populatelet selectedRecomposePages = new Set();
+let selectedRecomposePages = new Set();
 let tocData = []; // 儲存目次資訊: [{ globalPage, text, newPageNum }]
 let recomposeThumbnailObserver = null;
 
-// --- Helper Function ---RecomposePageList` 和 `renderRecomposeThumbnail` 函數。**
-
-```javascript
-// in js/recompose.js
-
-// ... (檔案頂部的 import 和變數定義保持不變) ...
-
-// --- UI and
+// --- Helper Function ---
 /**
  * 獲取指定 PDF 頁面的第一行文字作為預設目次標題。
  * @param {number} globalPageNum - 全局頁碼。
@@ -37,45 +16,23 @@ let recomposeThumbnailObserver = null;
  */
 async function getFirstLineOfText(globalPageNum) {
     const pageInfo = getDocAndLocalPage(globalPageNum);
-    if (!pageInfo) return "未知頁面"; State Management ---
-
-// ... (showRecomposePanel, hideRecomposePanel, updateUiComponents, togglePageSelection, renderTocList 這些函數都保持不變) ...
-
-
-// --- Thumbnail List Population (這是需要被填充的部分) ---
+    if (!pageInfo) return "未知頁面";
 
     try {
         const page = await pageInfo.doc.getPage(pageInfo.localPage);
-        
-
-/**
- * 填充重新組成面板中的頁面縮圖列表。
- */
-function populateRecomposePageListconst textContent = await page.getTextContent();
+        const textContent = await page.getTextContent();
         if (textContent.items.length > 0) {
             const firstTextItem = textContent.items.find(item => item.str.trim().length > 0);
             return firstTextItem ? firstTextItem.str.trim().substring(0, 50) : `第 ${globalPageNum} 頁`;
         }
-        return `第 ${globalPageNum} () {
-    dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
-
-    if (recomposeThumbnailObserver) {
-        recomposeThumbnailObserver.disconnect();
-    }
-
-    recomposeThumbnailObserver = new IntersectionObserver((entries, observer) => {
-        entries頁`;
+        return `第 ${globalPageNum} 頁`;
     } catch (error) {
         console.error("獲取首行文字失敗:", error);
         return `第 ${globalPageNum} 頁 (錯誤)`;
     }
 }
 
-// --- UI and.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target.querySelector('img');
-                const docIndex = parseInt(img.dataset.docIndex, 10);
- State Management ---
+// --- UI and State Management ---
 
 export function showRecomposePanel() {
     if (appState.pdfDocs.length === 0) {
@@ -83,23 +40,14 @@ export function showRecomposePanel() {
         return;
     }
     dom.recomposePanel.style.display = 'flex';
-    populateRecomposePageList(); // <--                const localPage = parseInt(img.dataset.localPage, 10);
-                renderRecomposeThumbnail(docIndex, localPage, img);
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { root: dom.recomposePageList, rootMargin: '0px 0px 2 確保呼叫這個函數
+    populateRecomposePageList();
     updateUiComponents();
 }
 
 export function hideRecomposePanel() {
     dom.recomposePanel.style.display = 'none';
     selectedRecomposePages.clear();
-    tocData = [];00px 0px' });
-
-    dom.recomposePageList.innerHTML = ''; // 清空載入中訊息
-
-    for (let globalPage = 1; globalPage <= appState.globalTotalPages; globalPage++)
+    tocData = [];
     dom.recomposePageList.innerHTML = '';
     dom.recomposeTocList.innerHTML = '';
     if (recomposeThumbnailObserver) {
@@ -120,20 +68,7 @@ function updateUiComponents() {
 async function togglePageSelection(globalPage, element) {
     if (selectedRecomposePages.has(globalPage)) {
         selectedRecomposePages.delete(globalPage);
-        element.classList.remove('selected {
-        const pageInfo = getDocAndLocalPage(globalPage);
-        if (!pageInfo) continue;
-
-        const thumbnailItem = document.createElement('div');
-        thumbnailItem.className = 'recompose-thumbnail-item';
-        thumbnailItem.dataset.globalPage = globalPage;
-
-        const img = document.createElement('img');
-        img.dataset.docIndex = pageInfo.docIndex;
-        img.dataset.localPage = pageInfo.localPage;
-        img.alt = `Page ${globalPage}`;
-        // 使用一個透明的 1x1 pixel GIF 作為佔位符，避免 404 錯誤
-        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/AC');
+        element.classList.remove('selected');
         tocData = tocData.filter(item => item.globalPage !== globalPage);
     } else {
         selectedRecomposePages.add(globalPage);
@@ -157,7 +92,68 @@ function renderTocList() {
     tocList.innerHTML = '';
 
     if (tocData.length === 0) {
-        tocList.innerHTML = `<p class="toc-placeholder">選擇頁面後將在此處生成目wAAAAAAQABAAACADs='; 
+        tocList.innerHTML = `<p class="toc-placeholder">選擇頁面後將在此處生成目次...</p>`;
+        return;
+    }
+
+    tocData.forEach(item => {
+        const tocItemDiv = document.createElement('div');
+        tocItemDiv.className = 'toc-item';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        input.value = item.text;
+        input.oninput = (e) => {
+            item.text = e.target.value;
+        };
+
+        const label = document.createElement('span');
+        label.className = 'page-label';
+        label.textContent = `→ 新頁碼 ${item.newPageNum + 1}`; // 頁碼+1，因為目次是第1頁
+
+        tocItemDiv.appendChild(input);
+        tocItemDiv.appendChild(label);
+        tocList.appendChild(tocItemDiv);
+    });
+}
+
+// --- Thumbnail List Population ---
+
+function populateRecomposePageList() {
+    dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
+
+    if (recomposeThumbnailObserver) {
+        recomposeThumbnailObserver.disconnect();
+    }
+
+    recomposeThumbnailObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target.querySelector('img');
+                const docIndex = parseInt(img.dataset.docIndex, 10);
+                const localPage = parseInt(img.dataset.localPage, 10);
+                renderRecomposeThumbnail(docIndex, localPage, img);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { root: dom.recomposePageList, rootMargin: '0px 0px 200px 0px' });
+
+    dom.recomposePageList.innerHTML = '';
+
+    for (let globalPage = 1; globalPage <= appState.globalTotalPages; globalPage++) {
+        const pageInfo = getDocAndLocalPage(globalPage);
+        if (!pageInfo) continue;
+
+        const thumbnailItem = document.createElement('div');
+        thumbnailItem.className = 'recompose-thumbnail-item';
+        thumbnailItem.dataset.globalPage = globalPage;
+
+        const img = document.createElement('img');
+        img.dataset.docIndex = pageInfo.docIndex;
+        img.dataset.localPage = pageInfo.localPage;
+        img.alt = `Page ${globalPage}`;
+        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='; // 透明佔位符
 
         const pageLabel = document.createElement('div');
         pageLabel.className = 'page-label';
@@ -175,29 +171,6 @@ function renderTocList() {
     }
 }
 
-/**
- * 渲染單個頁面的縮圖到指定的 img 元素上。
- * @param {number} docIndex - 檔案索引。
- * @次...</p>`;
-        return;
-    }
-
-    tocData.forEach(item => {
-        const tocItemDiv = document.createElement('div');
-        tocItemDiv.className = 'toc-item';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'form-control';
-        input.value = item.text;
-        input.oninput = (e) => {
-            item.text = e.target.value;
-        };
-
-        const label = document.createElement('span');
-        label.classNameparam {number} localPageNum - 本地頁碼。
- * @param {HTMLImageElement} imgElement - 目標 img 元素。
- */
 async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
     try {
         const doc = appState.pdfDocs[docIndex];
@@ -205,23 +178,7 @@ async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
         
         const page = await doc.getPage(localPageNum);
         const viewport = page.getViewport({ scale: 1 });
-        const THUMBNAIL_WIDTH = 150; //  = 'page-label';
-        label.textContent = `→ 新頁碼 ${item.newPageNum + 1}`; // 頁碼+1，因為目次是第1頁
-
-        tocItemDiv.appendChild(input);
-        tocItemDiv.appendChild(label);
-        tocList.appendChild(tocItemDiv);
-    });
-}
-
-// --- Thumbnail List Population (恢復並修正這部分) ---
-
-/**
- * 填充重新組成面板中的頁面縮圖列表。
- */
-function populateRecomposePageList() {
-    dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
-縮圖的固定寬度
+        const THUMBNAIL_WIDTH = 150;
         const scale = THUMBNAIL_WIDTH / viewport.width;
         const scaledViewport = page.getViewport({ scale: scale });
 
@@ -233,33 +190,111 @@ function populateRecomposePageList() {
         const renderContext = { canvasContext: thumbnailCtx, viewport: scaledViewport };
         await page.render(renderContext).promise;
         
-        // 使用 JPEG 格式以獲得更好的壓縮率
         const dataUrl = canvasEl.toDataURL('image/jpeg', 0.8);
         imgElement.src = dataUrl;
 
     } catch (error) {
         console.error(`Failed to render recompose thumbnail for doc ${docIndex} page ${localPageNum}:`, error);
-            selectedRecomposePages.clear();
-    tocData = [];
-
-    if (recomposeThumbnailObserver) {
-        recomposeThumbnailObserver.disconnect();
-    }
-
-    recomposeThumbnailObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                // 可以在這裡設置一個錯誤狀態的圖片
         imgElement.alt = "渲染失敗";
     }
 }
 
-
 // --- PDF Generation ---
 
-// ... (triggerGeneratePdf 和 generateNewPdf 函數保持不變) ...
-const img = entry.target.querySelector('img');
-                const docIndex = parseInt(img.dataset.docIndex, 10);
-                const localPage = parseInt(img.dataset.localPage, 10);
-                renderRecomposeThumbnail(docIndex, localPage, img);
-                observer.unobserve(entry.target);
+export function triggerGeneratePdf(fileName) {
+    generateNewPdf(fileName, tocData);
+}
+
+async function generateNewPdf(fileName, currentTocData) {
+    if (selectedRecomposePages.size === 0) {
+        showFeedback('請至少選擇一頁！');
+        return;
+    }
+
+    dom.generateNewPdfBtn.disabled = true;
+    dom.generateNewPdfBtn.innerHTML = '生成中...';
+
+    const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+    const newPdfDoc = await PDFDocument.create();
+    const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
+
+    try {
+        // 步驟 1: 創建並加入目次頁
+        const tocPage = newPdfDoc.addPage();
+        const { width, height } = tocPage.getSize();
+        const font = await newPdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontSizeTitle = 24;
+        const fontSizeItem = 12;
+        let y = height - 70;
+
+        tocPage.drawText('目次', {
+            x: 50,
+            y: y,
+            font,
+            size: fontSizeTitle,
+            color: rgb(0, 0, 0),
+        });
+        y -= 40;
+
+        currentTocData.forEach(item => {
+            if (y < 50) return;
+            const pageNumberText = `${item.newPageNum + 1}`;
+            const lineText = `${item.text}`;
+            const lineWidth = font.widthOfTextAtSize(lineText, fontSizeItem);
+            const pageNumWidth = font.widthOfTextAtSize(pageNumberText, fontSizeItem);
+            const dotsWidth = width - 100 - lineWidth - pageNumWidth - 10; // 100 for margins, 10 for spacing
+            const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / font.widthOfTextAtSize('.', fontSizeItem))));
+            
+            tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, {
+                x: 60,
+                y: y,
+                font,
+                size: fontSizeItem,
+                color: rgb(0.2, 0.2, 0.2),
+            });
+            y -= 20;
+        });
+
+        // 步驟 2: 複製使用者選擇的頁面
+        const sourceDocs = new Map();
+        for (const globalPageNum of sortedPages) {
+            const pageInfo = getDocAndLocalPage(globalPageNum);
+            if (!pageInfo) continue;
+
+            let sourcePdfDoc;
+            if (sourceDocs.has(pageInfo.docIndex)) {
+                sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
+            } else {
+                const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
+                if (!sourcePdfBytes) continue;
+                sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
+                sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
+            }
+            
+            const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
+            newPdfDoc.addPage(copiedPage);
+        }
+
+        // 步驟 3: 保存並下載
+        const pdfBytes = await newPdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        showFeedback(`已生成新 PDF: ${link.download}`);
+        hideRecomposePanel();
+
+    } catch (error) {
+        console.error('生成新 PDF 失敗:', error);
+        showFeedback('生成新 PDF 失敗！請參閱控制台。');
+    } finally {
+        dom.generateNewPdfBtn.disabled = false;
+        dom.generateNewPdfBtn.innerHTML = '生成 PDF 檔案';
+    }
+}
