@@ -1,45 +1,26 @@
-// in js/recompose.js
-
 import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
 
 // --- Module-level State ---
 let selectedRecomposePages = new Set();
-let tocData = []; // New structure: [{ type, globalPage?, text, newPageNum?, id }]
+let tocData = []; // Structure: [{ type, globalPage?, text, newPageNum?, id }]
 let recomposeThumbnailObserver = null;
+let sortableInstance = null; // To hold the SortableJS instance
 
 // --- Helper Functions ---
-/**
- * 智慧型獲取頁面的第一個有效標題行，會自動跳過頁碼。
- * @param {number} globalPageNum - 全局頁碼。
- * @returns {Promise<string>} 頁面的第一行文字。
- */
 async function getFirstLineOfText(globalPageNum) {
     const pageInfo = getDocAndLocalPage(globalPageNum);
     if (!pageInfo) return "未知頁面";
-
     try {
         const page = await pageInfo.doc.getPage(pageInfo.localPage);
         const textContent = await page.getTextContent();
         if (textContent.items.length === 0) return `第 ${globalPageNum} 頁`;
-
-        // **↓↓↓ 關鍵的修正點在這裡 ↓↓↓**
-        // 1. 按 Y 軸（垂直）從上到下排序 (Y 值越大越靠下，所以用 b - a)
-        //    再按 X 軸（水平）從左到右排序 (X 值越小越靠左，所以用 a - b)
-        const sortedItems = [...textContent.items].sort((a, b) => {
-            if (a.transform[5] !== b.transform[5]) {
-                return b.transform[5] - a.transform[5]; // <--- 修正排序順序
-            }
-            return a.transform[4] - b.transform[4];
-        });
-
-        // 2. 將排序後的文字塊組合成「行」
+        const sortedItems = [...textContent.items].sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
         const lines = [];
         if (sortedItems.length > 0) {
             let currentLine = [sortedItems[0]];
             for (let i = 1; i < sortedItems.length; i++) {
-                // 如果 Y 座標非常接近，則視為同一行
                 if (Math.abs(sortedItems[i].transform[5] - currentLine[0].transform[5]) < 2) {
                     currentLine.push(sortedItems[i]);
                 } else {
@@ -49,35 +30,20 @@ async function getFirstLineOfText(globalPageNum) {
             }
             lines.push(currentLine.map(item => item.str).join(''));
         }
-
-        // 3. 遍歷所有行，找到第一個不是頁碼的行
         for (const lineText of lines) {
             const trimmedLine = lineText.trim();
             if (trimmedLine.length === 0) continue;
-
-            // 4. 判斷是否可能是頁碼的規則
             const isLikelyPageNumber = trimmedLine.length <= 10 && /^\s*[\d\s-–—]+\s*$/.test(trimmedLine);
-
-            if (!isLikelyPageNumber) {
-                return trimmedLine.substring(0, 80);
-            }
+            if (!isLikelyPageNumber) return trimmedLine.substring(0, 80);
         }
-
-        // 5. 如果所有行都是頁碼，則返回第一行的內容作為備用
-        if (lines.length > 0) {
-            return lines[0].trim().substring(0, 80);
-        }
-
-        return `第 ${globalPageNum} 頁`;
-
+        return lines.length > 0 ? lines[0].trim().substring(0, 80) : `第 ${globalPageNum} 頁`;
     } catch (error) {
         console.error("獲取首行文字失敗:", error);
         return `第 ${globalPageNum} 頁 (錯誤)`;
     }
 }
 
-
-// --- UI and State Management (這部分程式碼保持不變) ---
+// --- UI and State Management ---
 export function showRecomposePanel() {
     if (appState.pdfDocs.length === 0) {
         showFeedback('請先載入 PDF 檔案！');
@@ -87,6 +53,19 @@ export function showRecomposePanel() {
     document.getElementById('add-chapter-btn').onclick = addChapter;
     document.getElementById('export-toc-btn').onclick = exportToc;
     document.getElementById('import-toc-input').onchange = importToc;
+    
+    if (sortableInstance) sortableInstance.destroy();
+    sortableInstance = new Sortable(dom.recomposeTocList, {
+        animation: 150,
+        handle: '.drag-handle',
+        ghostClass: 'sortable-ghost',
+        onEnd: (evt) => {
+            const movedItem = tocData.splice(evt.oldIndex, 1)[0];
+            tocData.splice(evt.newIndex, 0, movedItem);
+            updateUiComponents();
+        }
+    });
+
     populateRecomposePageList();
     updateUiComponents();
 }
@@ -97,8 +76,10 @@ export function hideRecomposePanel() {
     tocData = [];
     dom.recomposePageList.innerHTML = '';
     dom.recomposeTocList.innerHTML = '';
-    if (recomposeThumbnailObserver) {
-        recomposeThumbnailObserver.disconnect();
+    if (recomposeThumbnailObserver) recomposeThumbnailObserver.disconnect();
+    if (sortableInstance) {
+        sortableInstance.destroy();
+        sortableInstance = null;
     }
     document.getElementById('import-toc-input').value = null;
 }
@@ -110,12 +91,8 @@ function updateUiComponents() {
             item.newPageNum = currentPageCounter++;
         }
     });
-    if (dom.selectedPagesCountSpan) {
-        dom.selectedPagesCountSpan.textContent = selectedRecomposePages.size;
-    }
-    if (dom.generateNewPdfBtn) {
-        dom.generateNewPdfBtn.disabled = selectedRecomposePages.size === 0;
-    }
+    if (dom.selectedPagesCountSpan) dom.selectedPagesCountSpan.textContent = selectedRecomposePages.size;
+    if (dom.generateNewPdfBtn) dom.generateNewPdfBtn.disabled = selectedRecomposePages.size === 0;
     renderTocList();
 }
 
@@ -129,13 +106,17 @@ async function togglePageSelection(globalPage, element) {
         selectedRecomposePages.add(globalPage);
         element.classList.add('selected');
         const defaultText = await getFirstLineOfText(globalPage);
-        tocData.push({ type: 'page', globalPage, text: defaultText, id: `page-${globalPage}` });
+        const newPageItem = { type: 'page', globalPage, text: defaultText, id: `page-${globalPage}` };
+        let inserted = false;
+        for (let i = 0; i < tocData.length; i++) {
+            if (tocData[i].type === 'page' && tocData[i].globalPage > globalPage) {
+                tocData.splice(i, 0, newPageItem);
+                inserted = true;
+                break;
+            }
+        }
+        if (!inserted) tocData.push(newPageItem);
     }
-    tocData.sort((a, b) => {
-        const aIndex = a.type === 'page' ? a.globalPage : Infinity;
-        const bIndex = b.type === 'page' ? b.globalPage : Infinity;
-        return aIndex - bIndex;
-    });
     updateUiComponents();
 }
 
@@ -150,10 +131,17 @@ function renderTocList() {
         const tocItemDiv = document.createElement('div');
         tocItemDiv.className = 'toc-item';
         tocItemDiv.classList.toggle('is-chapter', item.type === 'chapter');
+        
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'drag-handle';
+        dragHandle.innerHTML = '<i class="fas fa-grip-vertical"></i>';
+        tocItemDiv.appendChild(dragHandle);
+
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-item-btn';
         deleteBtn.innerHTML = '<i class="fas fa-times-circle"></i>';
         deleteBtn.onclick = () => deleteTocItem(item.id);
+
         if (item.type === 'page') {
             const originalPageLabel = document.createElement('span');
             originalPageLabel.className = 'original-page-label';
@@ -178,7 +166,7 @@ function renderTocList() {
     });
 }
 
-// --- New TOC Actions (這部分程式碼保持不變) ---
+// --- New TOC Actions ---
 function addChapter() {
     tocData.push({ type: 'chapter', text: '新章節', id: `ch-${Date.now()}` });
     updateUiComponents();
@@ -252,12 +240,10 @@ function importToc(event) {
     reader.readAsText(file);
 }
 
-// --- Thumbnail List Population (這部分程式碼保持不變) ---
+// --- Thumbnail List Population ---
 function populateRecomposePageList() {
     dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
-    if (recomposeThumbnailObserver) {
-        recomposeThumbnailObserver.disconnect();
-    }
+    if (recomposeThumbnailObserver) recomposeThumbnailObserver.disconnect();
     recomposeThumbnailObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -314,7 +300,7 @@ async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
     }
 }
 
-// --- PDF Generation (這部分程式碼保持不變) ---
+// --- PDF Generation ---
 export function triggerGeneratePdf(fileName) {
     generateNewPdf(fileName, tocData);
 }
@@ -382,6 +368,7 @@ async function generateNewPdf(fileName, currentTocData) {
         // 步驟 2: 複製頁面
         const pagesToCopy = currentTocData.filter(i => i.type === 'page');
         const sourceDocs = new Map();
+        const copiedPages = [];
         for (const item of pagesToCopy) {
             const pageInfo = getDocAndLocalPage(item.globalPage);
             if (!pageInfo) continue;
@@ -395,10 +382,38 @@ async function generateNewPdf(fileName, currentTocData) {
                 sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
             }
             const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
-            newPdfDoc.addPage(copiedPage);
+            copiedPages.push(copiedPage);
+        }
+        
+        // 步驟 3: 添加新頁碼並將頁面加入文件
+        const totalPages = copiedPages.length;
+        for (let i = 0; i < totalPages; i++) {
+            const page = copiedPages[i];
+            const { width, height } = page.getSize();
+            const pageNumberText = `${i + 1} / ${totalPages}`;
+            const textWidth = customFont.widthOfTextAtSize(pageNumberText, 10);
+
+            // (可選) 畫白色方塊覆蓋舊頁碼
+            // 假設舊頁碼在底部 30px 的區域內
+            // page.drawRectangle({
+            //     x: 0,
+            //     y: 0,
+            //     width: width,
+            //     height: 30,
+            //     color: rgb(1, 1, 1), // 白色
+            // });
+
+            page.drawText(pageNumberText, {
+                x: width - textWidth - 30,
+                y: 20,
+                font: customFont,
+                size: 10,
+                color: rgb(0.5, 0.5, 0.5),
+            });
+            newPdfDoc.addPage(page);
         }
 
-        // 步驟 3: 保存下載
+        // 步驟 4: 保存下載
         const pdfBytes = await newPdfDoc.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const link = document.createElement('a');
