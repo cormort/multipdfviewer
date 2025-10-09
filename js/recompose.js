@@ -1,7 +1,3 @@
-// **變更點 1: 從 CDN 的 ES Module 版本直接導入所有需要的函式庫**
-import { PDFDocument, rgb, PageSizes } from 'https://unpkg.com/pdf-lib/dist/pdf-lib.esm.js';
-import fontkit from 'https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.es.js';
-
 // 從本地模組導入
 import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
@@ -345,7 +341,28 @@ async function generateNewPdf(fileName, currentTocData, addToc, addPageNumbers) 
     dom.generateNewPdfBtn.disabled = true;
     dom.generateNewPdfBtn.innerHTML = '生成中...';
 
+    const { PDFDocument, rgb, PageSizes } = window.PDFLib;
+
+    const getFontkit = () => {
+        return new Promise((resolve, reject) => {
+            if (window.fontkit) return resolve(window.fontkit);
+            let attempts = 0;
+            const interval = setInterval(() => {
+                if (window.fontkit) {
+                    clearInterval(interval);
+                    return resolve(window.fontkit);
+                }
+                attempts++;
+                if (attempts > 50) {
+                    clearInterval(interval);
+                    reject(new Error('字體引擎 fontkit 載入超時！'));
+                }
+            }, 100);
+        });
+    };
+
     try {
+        const fontkit = await getFontkit();
         const newPdfDoc = await PDFDocument.create();
         newPdfDoc.registerFontkit(fontkit);
 
