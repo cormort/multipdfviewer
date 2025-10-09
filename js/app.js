@@ -1,12 +1,3 @@
-// in js/app.js
-
-// **變更點 1: 從 CDN URL 直接導入函式庫**
-import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
-
-// 將 pdfjsLib 附加到 window 物件上，以便 viewer.js 等舊模組可以訪問
-// 這是為了最小化修改的臨時方案
-window.pdfjsLib = pdfjsLib;
-
 // 從本地模組導入
 import { dom, appState, resetAppState, initializeDom } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
@@ -15,30 +6,90 @@ import * as Viewer from './viewer.js';
 import * as Search from './search.js';
 import { showFeedback } from './utils.js';
 
-// ... (handleFileSelect 和 loadFilesIntoApp 函數保持不變) ...
-export async function handleFileSelect(e) { /* ... */ }
-async function loadFilesIntoApp(loadedFileData) { /* ... */ }
+/**
+ * 處理用戶選擇的檔案。
+ */
+export async function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const readFileAsBuffer = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ name: file.name, type: file.type, buffer: reader.result });
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    try {
+        const loadedFileData = await Promise.all(files.map(readFileAsBuffer));
+        await saveFiles(loadedFileData);
+        if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'none';
+        await loadFilesIntoApp(loadedFileData);
+    } catch (error) {
+        console.error("處理檔案時發生錯誤:", error);
+        showFeedback("讀取或儲存檔案時出錯。");
+    }
+}
+
+/**
+ * 將讀取好的檔案數據載入到應用程式狀態中並觸發渲染。
+ */
+async function loadFilesIntoApp(loadedFileData) {
+    resetAppState();
+    UI.updateUIForNewState();
+    
+    const loadedData = await Viewer.loadAndProcessFiles(loadedFileData);
+    if (!loadedData) {
+        showFeedback('未載入任何有效的 PDF 檔案。');
+        resetAppState();
+        UI.updateUIForNewState();
+        return;
+    }
+
+    appState.pdfDocs = loadedData.pdfDocs;
+    appState.pageMap = loadedData.pageMap;
+    appState.globalTotalPages = loadedData.globalTotalPages;
+    appState.pdfArrayBuffers = loadedData.pdfArrayBuffers;
+
+    Viewer.renderPage(1);
+    UI.updateUIForNewState();
+}
 
 /**
  * 應用程式的主初始化函數。
  */
 async function initializeApp() {
-    // **變更點 2: 不再需要等待，直接使用導入的 pdfjsLib**
-    if (pdfjsLib) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
-    } else {
-        console.error("pdf.js library failed to load via import!");
-        showFeedback("核心 PDF 函式庫載入失敗。");
-        return;
-    }
+    // **變更點: 使用全域的 pdfjsLib，並提供 worker 的 CDN 路徑**
+    const waitForPdfJs = () => {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const interval = setInterval(() => {
+                if (typeof window.pdfjsLib !== 'undefined') {
+                    clearInterval(interval);
+                    resolve(window.pdfjsLib);
+                }
+                attempts++;
+                if (attempts > 100) { // 等待最多 10 秒
+                    clearInterval(interval);
+                    reject(new Error("pdf.js library failed to load from script tag!"));
+                }
+            }, 100);
+        });
+    };
 
-    initializeDom();
-    UI.initEventHandlers();
-    Viewer.initLocalMagnifier();
-    Search.initThumbnailObserver();
-    UI.updateUIForNewState();
-    
     try {
+        const pdfjsLib = await waitForPdfJs();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+        window.pdfjsLib = pdfjsLib; // 確保它在全域可用
+
+        initializeDom();
+        UI.initEventHandlers();
+        Viewer.initLocalMagnifier();
+        Search.initThumbnailObserver();
+        UI.updateUIForNewState();
+        
         await initDB();
         const storedFiles = await getFiles();
         if (storedFiles.length > 0) {
@@ -65,7 +116,8 @@ async function initializeApp() {
             }
         }
     } catch (error) {
-        console.error("Could not initialize app from IndexedDB:", error);
+        console.error("App initialization failed:", error);
+        showFeedback(error.message || "應用程式初始化失敗。");
     }
 }
 
