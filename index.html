@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/pdfjs-dist@4.0.379/web/pdf_viewer.css" />
     <link rel="stylesheet" href="style.css">
+    
+    <!-- PDF.js (主程式和工人) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs" type="module"></script>
+    
+    <!-- pdf-lib (UMD 版本) -->
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    
+    <!-- fontkit (UMD 版本) -->
+    <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
+    
 </head>
 <body>
     <div id="app-container">
@@ -205,6 +216,7 @@
 
     <div id="feedback-message"></div>
 
+    <!-- **變更點 2: 確保 app.js 仍然是 module 類型** -->
     <script type="module" src="./js/app.js"></script>
 </body>
 </html>
