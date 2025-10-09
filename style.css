@@ -703,3 +703,29 @@ body {
 .toc-item:hover .delete-item-btn {
     opacity: 1;
 }
+/* --- SortableJS Drag & Drop Styles --- */
+.toc-item {
+    /* ... (保留原有樣式) ... */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.toc-item .drag-handle {
+    cursor: grab;
+    color: #adb5bd;
+    padding: 4px;
+    font-size: 1.2em;
+}
+
+.toc-item:active .drag-handle {
+    cursor: grabbing;
+}
+
+/* Style for the placeholder element while dragging */
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #e6f2ff;
+    border: 1px dashed var(--primary-color);
+}
