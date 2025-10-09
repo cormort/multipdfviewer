@@ -1,19 +1,24 @@
-import { dom, appState, resetAppState } from './state.js';
-import { handleFileSelect } from './app.js';
+// in js/ui.js
+
+// 從本地模組導入
+import { dom, appState } from './state.js';
+import { handleFileSelect } from './app.js'; // <-- **關鍵的修正點 1: 直接導入 handleFileSelect**
 import { goToPage, renderPage, toggleLocalMagnifier, updateMagnifierZoomLevel, updateLocalMagnifier } from './viewer.js';
 import { searchKeyword, rerenderAllThumbnails } from './search.js';
 import { showFeedback, getPatternFromSearchInput } from './utils.js';
-import { toggleHighlighter, toggleTextSelection, toggleParagraphSelection, startDrawing, draw, stopDrawing, handleParagraphSelection, deactivateAllModes } from './annotation.js';
+import { toggleHighlighter, toggleTextSelection, toggleParagraphSelection, startDrawing, draw, stopDrawing, handleParagraphSelection } from './annotation.js';
 import { showRecomposePanel, hideRecomposePanel, triggerGeneratePdf } from './recompose.js';
 
 /**
  * 初始化所有 DOM 元素的事件監聽器。
  */
+// **關鍵的修正點 2: 移除函數的參數**
 export function initEventHandlers() {
     // --- File and Session ---
+    // 現在 handleFileSelect 是直接從 app.js 導入的，所以這裡可以正常工作
     dom.fileInput.addEventListener('change', handleFileSelect);
     dom.clearSessionBtn.addEventListener('click', () => {
-        resetAppState();
+        resetAppState(); // 假設 resetAppState 在 state.js 中
         updateUIForNewState();
     });
 
@@ -290,8 +295,7 @@ export function updateFilterAndResultsUI(selectedFile = null) {
         if (filteredResults.length === 0) {
              dom.resultsList.innerHTML = `<p style="padding: 10px; color: #666;">${appState.searchResults.length === 0 ? '無搜尋結果' : '在此檔案中找不到結果。'}</p>`;
         } else {
-            // 這裡的邏輯需要調整，應該由 search.js 來填充內容
-            // rerenderAllThumbnails(); // This should be called from search.js after populating
+            // This part is now handled by search.js
         }
     }
 }
