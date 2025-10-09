@@ -10,28 +10,75 @@ let tocData = []; // New structure: [{ type, globalPage?, text, newPageNum?, id 
 let recomposeThumbnailObserver = null;
 
 // --- Helper Functions ---
+/**
+ * 智慧型獲取頁面的第一個有效標題行，會自動跳過頁碼。
+ * @param {number} globalPageNum - 全局頁碼。
+ * @returns {Promise<string>} 頁面的第一行文字。
+ */
 async function getFirstLineOfText(globalPageNum) {
     const pageInfo = getDocAndLocalPage(globalPageNum);
     if (!pageInfo) return "未知頁面";
+
     try {
         const page = await pageInfo.doc.getPage(pageInfo.localPage);
         const textContent = await page.getTextContent();
         if (textContent.items.length === 0) return `第 ${globalPageNum} 頁`;
-        const firstItem = textContent.items.find(item => item.str.trim().length > 0);
-        if (!firstItem) return `第 ${globalPageNum} 頁`;
-        const yPos = firstItem.transform[5];
-        const tolerance = firstItem.height * 0.2;
-        const lineItems = textContent.items
-            .filter(item => Math.abs(item.transform[5] - yPos) < tolerance)
-            .sort((a, b) => a.transform[4] - b.transform[4]);
-        return lineItems.map(item => item.str).join('').trim().substring(0, 80);
+
+        // 1. 按 Y 軸（垂直）從上到下，再按 X 軸（水平）從左到右排序
+        const sortedItems = [...textContent.items].sort((a, b) => {
+            if (a.transform[5] !== b.transform[5]) {
+                return a.transform[5] - b.transform[5];
+            }
+            return a.transform[4] - b.transform[4];
+        });
+
+        // 2. 將排序後的文字塊組合成「行」
+        const lines = [];
+        if (sortedItems.length > 0) {
+            let currentLine = [sortedItems[0]];
+            for (let i = 1; i < sortedItems.length; i++) {
+                // 如果 Y 座標非常接近，則視為同一行
+                if (Math.abs(sortedItems[i].transform[5] - currentLine[0].transform[5]) < 2) {
+                    currentLine.push(sortedItems[i]);
+                } else {
+                    lines.push(currentLine.map(item => item.str).join(''));
+                    currentLine = [sortedItems[i]];
+                }
+            }
+            lines.push(currentLine.map(item => item.str).join(''));
+        }
+
+        // 3. 遍歷所有行，找到第一個不是頁碼的行
+        for (const lineText of lines) {
+            const trimmedLine = lineText.trim();
+            if (trimmedLine.length === 0) continue; // 跳過空行
+
+            // 4. 判斷是否可能是頁碼的規則：
+            // - 長度小於等於 10
+            // - 只包含數字、空格、和三種常見的破折號
+            const isLikelyPageNumber = trimmedLine.length <= 10 && /^\s*[\d\s-–—]+\s*$/.test(trimmedLine);
+
+            if (!isLikelyPageNumber) {
+                // 如果不是頁碼，這就是我們要的標題！
+                return trimmedLine.substring(0, 80);
+            }
+        }
+
+        // 5. 如果遍歷完所有行都是頁碼（或空行），則返回第一行的內容作為備用
+        if (lines.length > 0) {
+            return lines[0].trim().substring(0, 80);
+        }
+
+        return `第 ${globalPageNum} 頁`;
+
     } catch (error) {
         console.error("獲取首行文字失敗:", error);
         return `第 ${globalPageNum} 頁 (錯誤)`;
     }
 }
 
-// --- UI and State Management ---
+
+// --- UI and State Management (這部分程式碼保持不變) ---
 export function showRecomposePanel() {
     if (appState.pdfDocs.length === 0) {
         showFeedback('請先載入 PDF 檔案！');
@@ -132,7 +179,7 @@ function renderTocList() {
     });
 }
 
-// --- New TOC Actions ---
+// --- New TOC Actions (這部分程式碼保持不變) ---
 function addChapter() {
     tocData.push({ type: 'chapter', text: '新章節', id: `ch-${Date.now()}` });
     updateUiComponents();
@@ -206,7 +253,7 @@ function importToc(event) {
     reader.readAsText(file);
 }
 
-// --- Thumbnail List Population (Full Implementation) ---
+// --- Thumbnail List Population (這部分程式碼保持不變) ---
 function populateRecomposePageList() {
     dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
     if (recomposeThumbnailObserver) {
@@ -268,7 +315,7 @@ async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
     }
 }
 
-// --- PDF Generation ---
+// --- PDF Generation (這部分程式碼保持不變) ---
 export function triggerGeneratePdf(fileName) {
     generateNewPdf(fileName, tocData);
 }
@@ -306,7 +353,7 @@ async function generateNewPdf(fileName, currentTocData) {
         const newPdfDoc = await PDFDocument.create();
         newPdfDoc.registerFontkit(fontkit);
 
-        const fontUrl = './fonts/SourceHanSansTC-Regular.otf';
+        const fontUrl = './fonts/BiauKai.ttf';
         const fontBytes = await fetch(fontUrl).then(res => res.ok ? res.arrayBuffer() : Promise.reject(`字體檔案載入失敗: ${res.status}`));
         const customFont = await newPdfDoc.embedFont(fontBytes);
 
