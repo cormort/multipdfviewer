@@ -65,7 +65,10 @@ async function loadFilesIntoApp(loadedFileData) {
 }
 
 async function initializeApp() {
+    async function initializeApp() {
+    // **變更點: 確保這段程式碼在最前面**
     if (typeof pdfjsLib !== 'undefined') {
+        // 使用與主程式庫相同的 CDN 路徑和版本
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
     } else {
         console.error("pdf.js library is not loaded!");
