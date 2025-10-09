@@ -4,9 +4,10 @@ import { showFeedback } from './utils.js';
 
 // --- Module-level State ---
 let selectedRecomposePages = new Set();
-let tocData = []; // Structure: [{ type, globalPage?, text, newPageNum?, id }]
+let tocData = [];
 let recomposeThumbnailObserver = null;
-let sortableInstance = null; // To hold the SortableJS instance
+let sortableInstance = null;
+let lastSelectedPage = -1;
 
 // --- Helper Functions ---
 async function getFirstLineOfText(globalPageNum) {
@@ -74,6 +75,7 @@ export function hideRecomposePanel() {
     dom.recomposePanel.style.display = 'none';
     selectedRecomposePages.clear();
     tocData = [];
+    lastSelectedPage = -1;
     dom.recomposePageList.innerHTML = '';
     dom.recomposeTocList.innerHTML = '';
     if (recomposeThumbnailObserver) recomposeThumbnailObserver.disconnect();
@@ -93,30 +95,54 @@ function updateUiComponents() {
     });
     if (dom.selectedPagesCountSpan) dom.selectedPagesCountSpan.textContent = selectedRecomposePages.size;
     if (dom.generateNewPdfBtn) dom.generateNewPdfBtn.disabled = selectedRecomposePages.size === 0;
+    
+    // 同步縮圖的核取方塊狀態
+    dom.recomposePageList.querySelectorAll('.recompose-thumbnail-item').forEach(thumb => {
+        const page = parseInt(thumb.dataset.globalPage, 10);
+        const checkbox = thumb.querySelector('.thumbnail-checkbox');
+        if (checkbox) {
+            checkbox.checked = selectedRecomposePages.has(page);
+        }
+    });
+
     renderTocList();
 }
 
-async function togglePageSelection(globalPage, element) {
-    const isSelected = selectedRecomposePages.has(globalPage);
-    if (isSelected) {
-        selectedRecomposePages.delete(globalPage);
-        element.classList.remove('selected');
-        tocData = tocData.filter(item => item.globalPage !== globalPage);
-    } else {
-        selectedRecomposePages.add(globalPage);
-        element.classList.add('selected');
-        const defaultText = await getFirstLineOfText(globalPage);
-        const newPageItem = { type: 'page', globalPage, text: defaultText, id: `page-${globalPage}` };
-        let inserted = false;
-        for (let i = 0; i < tocData.length; i++) {
-            if (tocData[i].type === 'page' && tocData[i].globalPage > globalPage) {
-                tocData.splice(i, 0, newPageItem);
-                inserted = true;
-                break;
+async function togglePageSelection(globalPage, element, event) {
+    if (event.shiftKey && lastSelectedPage > 0) {
+        const start = Math.min(lastSelectedPage, globalPage);
+        const end = Math.max(lastSelectedPage, globalPage);
+        const pagesToSelect = [];
+        for (let i = start; i <= end; i++) {
+            if (!selectedRecomposePages.has(i)) {
+                pagesToSelect.push(i);
             }
         }
-        if (!inserted) tocData.push(newPageItem);
+        for (const pageNum of pagesToSelect) {
+            selectedRecomposePages.add(pageNum);
+            const defaultText = await getFirstLineOfText(pageNum);
+            tocData.push({ type: 'page', globalPage: pageNum, text: defaultText, id: `page-${pageNum}` });
+        }
+    } else {
+        const isSelected = selectedRecomposePages.has(globalPage);
+        if (isSelected) {
+            selectedRecomposePages.delete(globalPage);
+            tocData = tocData.filter(item => item.globalPage !== globalPage);
+        } else {
+            selectedRecomposePages.add(globalPage);
+            const defaultText = await getFirstLineOfText(globalPage);
+            tocData.push({ type: 'page', globalPage, text: defaultText, id: `page-${globalPage}` });
+        }
     }
+    
+    lastSelectedPage = globalPage;
+
+    tocData.sort((a, b) => {
+        const aVal = a.type === 'page' ? a.globalPage : Infinity;
+        const bVal = b.type === 'page' ? b.globalPage : Infinity;
+        if (aVal === Infinity && bVal === Infinity) return 0;
+        return aVal - bVal;
+    });
     updateUiComponents();
 }
 
@@ -176,8 +202,6 @@ function deleteTocItem(id) {
     const itemToDelete = tocData.find(item => item.id === id);
     if (itemToDelete && itemToDelete.type === 'page') {
         selectedRecomposePages.delete(itemToDelete.globalPage);
-        const thumb = dom.recomposePageList.querySelector(`[data-global-page="${itemToDelete.globalPage}"]`);
-        if (thumb) thumb.classList.remove('selected');
     }
     tocData = tocData.filter(item => item.id !== id);
     updateUiComponents();
@@ -230,10 +254,6 @@ function importToc(event) {
         }
         tocData = newTocData;
         selectedRecomposePages = newSelectedPages;
-        dom.recomposePageList.querySelectorAll('.recompose-thumbnail-item').forEach(thumb => {
-            const page = parseInt(thumb.dataset.globalPage, 10);
-            thumb.classList.toggle('selected', selectedRecomposePages.has(page));
-        });
         updateUiComponents();
         showFeedback("目次已匯入！");
     };
@@ -262,6 +282,12 @@ function populateRecomposePageList() {
         const thumbnailItem = document.createElement('div');
         thumbnailItem.className = 'recompose-thumbnail-item';
         thumbnailItem.dataset.globalPage = globalPage;
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'thumbnail-checkbox';
+        thumbnailItem.appendChild(checkbox);
+
         const img = document.createElement('img');
         img.dataset.docIndex = pageInfo.docIndex;
         img.dataset.localPage = pageInfo.localPage;
@@ -273,7 +299,7 @@ function populateRecomposePageList() {
         pageLabel.title = `檔案: ${pageInfo.docName}, 本地頁: ${pageInfo.localPage}`;
         thumbnailItem.appendChild(img);
         thumbnailItem.appendChild(pageLabel);
-        thumbnailItem.addEventListener('click', () => togglePageSelection(globalPage, thumbnailItem));
+        thumbnailItem.addEventListener('click', (event) => togglePageSelection(globalPage, thumbnailItem, event));
         dom.recomposePageList.appendChild(thumbnailItem);
         recomposeThumbnailObserver.observe(thumbnailItem);
     }
@@ -302,10 +328,12 @@ async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
 
 // --- PDF Generation ---
 export function triggerGeneratePdf(fileName) {
-    generateNewPdf(fileName, tocData);
+    const addToc = document.getElementById('add-toc-checkbox').checked;
+    const addPageNumbers = document.getElementById('add-new-pagenumber-checkbox').checked;
+    generateNewPdf(fileName, tocData, addToc, addPageNumbers);
 }
 
-async function generateNewPdf(fileName, currentTocData) {
+async function generateNewPdf(fileName, currentTocData, addToc, addPageNumbers) {
     if (currentTocData.filter(i => i.type === 'page').length === 0) {
         showFeedback('請至少選擇一個頁面！');
         return;
@@ -342,79 +370,72 @@ async function generateNewPdf(fileName, currentTocData) {
         const fontBytes = await fetch(fontUrl).then(res => res.ok ? res.arrayBuffer() : Promise.reject(`字體檔案載入失敗: ${res.status}`));
         const customFont = await newPdfDoc.embedFont(fontBytes);
 
-        // 步驟 1: 創建橫版目次頁
-        const tocPage = newPdfDoc.addPage(PageSizes.A4.reverse());
-        const { width, height } = tocPage.getSize();
-        let y = height - 70;
-        tocPage.drawText('目次', { x: 50, y, font: customFont, size: 24, color: rgb(0, 0, 0) });
-        y -= 40;
-        currentTocData.forEach(item => {
-            if (y < 50) return;
-            if (item.type === 'chapter') {
-                tocPage.drawText(item.text, { x: 60, y, font: customFont, size: 14, color: rgb(0.1, 0.1, 0.1) });
-                y -= 25;
-            } else {
-                const pageNumberText = `${item.newPageNum + 1}`;
-                const lineText = `${item.text}`;
-                const lineWidth = customFont.widthOfTextAtSize(lineText, 12);
-                const pageNumWidth = customFont.widthOfTextAtSize(pageNumberText, 12);
-                const dotsWidth = width - 100 - lineWidth - pageNumWidth - 10;
-                const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / customFont.widthOfTextAtSize('.', 12))));
-                tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, { x: 60, y, font: customFont, size: 12, color: rgb(0.2, 0.2, 0.2) });
-                y -= 20;
-            }
-        });
+        if (addToc) {
+            const tocPage = newPdfDoc.addPage(PageSizes.A4.reverse());
+            const { width, height } = tocPage.getSize();
+            let y = height - 70;
+            tocPage.drawText('目次', { x: 50, y, font: customFont, size: 24, color: rgb(0, 0, 0) });
+            y -= 40;
+            currentTocData.forEach(item => {
+                if (y < 50) return;
+                if (item.type === 'chapter') {
+                    tocPage.drawText(item.text, { x: 60, y, font: customFont, size: 14, color: rgb(0.1, 0.1, 0.1) });
+                    y -= 25;
+                } else {
+                    const pageNumberText = `${item.newPageNum + (addToc ? 1 : 0)}`;
+                    const lineText = `${item.text}`;
+                    const lineWidth = customFont.widthOfTextAtSize(lineText, 12);
+                    const pageNumWidth = customFont.widthOfTextAtSize(pageNumberText, 12);
+                    const dotsWidth = width - 100 - lineWidth - pageNumWidth - 10;
+                    const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / customFont.widthOfTextAtSize('.', 12))));
+                    tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, { x: 60, y, font: customFont, size: 12, color: rgb(0.2, 0.2, 0.2) });
+                    y -= 20;
+                }
+            });
+        }
 
-        // 步驟 2: 複製頁面
         const pagesToCopy = currentTocData.filter(i => i.type === 'page');
         const sourceDocs = new Map();
-        const copiedPages = [];
         for (const item of pagesToCopy) {
             const pageInfo = getDocAndLocalPage(item.globalPage);
             if (!pageInfo) continue;
-            let sourcePdfDoc;
-            if (sourceDocs.has(pageInfo.docIndex)) {
-                sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
-            } else {
+            if (!sourceDocs.has(pageInfo.docIndex)) {
                 const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
-                if (!sourcePdfBytes) continue;
-                sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
-                sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
+                if (sourcePdfBytes) {
+                    const sourcePdfDoc = await PDFDocument.load(sourcePdfBytes, { updateMetadata: false });
+                    sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
+                }
             }
+        }
+
+        const copiedPages = [];
+        for (const item of pagesToCopy) {
+            const pageInfo = getDocAndLocalPage(item.globalPage);
+            const sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
+            if (!sourcePdfDoc) continue;
             const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
             copiedPages.push(copiedPage);
         }
         
-        // 步驟 3: 添加新頁碼並將頁面加入文件
-        const totalPages = copiedPages.length;
-        for (let i = 0; i < totalPages; i++) {
+        const totalContentPages = copiedPages.length;
+        for (let i = 0; i < totalContentPages; i++) {
             const page = copiedPages[i];
-            const { width, height } = page.getSize();
-            const pageNumberText = `${i + 1} / ${totalPages}`;
-            const textWidth = customFont.widthOfTextAtSize(pageNumberText, 10);
-
-            // (可選) 畫白色方塊覆蓋舊頁碼
-            // 假設舊頁碼在底部 30px 的區域內
-            // page.drawRectangle({
-            //     x: 0,
-            //     y: 0,
-            //     width: width,
-            //     height: 30,
-            //     color: rgb(1, 1, 1), // 白色
-            // });
-
-            page.drawText(pageNumberText, {
-                x: width - textWidth - 30,
-                y: 20,
-                font: customFont,
-                size: 10,
-                color: rgb(0.5, 0.5, 0.5),
-            });
+            if (addPageNumbers) {
+                const { width, height } = page.getSize();
+                const pageNumberText = `${i + 1 + (addToc ? 1 : 0)} / ${totalContentPages + (addToc ? 1 : 0)}`;
+                const textWidth = customFont.widthOfTextAtSize(pageNumberText, 10);
+                page.drawText(pageNumberText, {
+                    x: width - textWidth - 30,
+                    y: 20,
+                    font: customFont,
+                    size: 10,
+                    color: rgb(0.5, 0.5, 0.5),
+                });
+            }
             newPdfDoc.addPage(page);
         }
 
-        // 步驟 4: 保存下載
-        const pdfBytes = await newPdfDoc.save();
+        const pdfBytes = await newPdfDoc.save({ useObjectStreams: false });
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
