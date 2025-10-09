@@ -1,3 +1,4 @@
+// 從本地模組導入
 import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
