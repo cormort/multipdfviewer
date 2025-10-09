@@ -199,12 +199,21 @@
                 </div>
             </div>
             <!-- 右側：目次編輯 -->
-            <div class="recompose-toc-pane">
-                <h4>2. 編輯目次 (可選)</h4>
-                <div id="recompose-toc-list" class="toc-list">
-                    <p class="toc-placeholder">選擇頁面後將在此處生成目次...</p>
-                </div>
+        <div class="recompose-toc-pane">
+                <div class="toc-header">
+                    <h4>2. 編輯目次 (可選)</h4>
+            <!-- ↓↓↓ 新增的按鈕 ↓↓↓ -->
+            <div class="toc-actions">
+                <button id="add-chapter-btn" class="btn btn-sm" title="新增章節標題"><i class="fas fa-plus"></i> 新增章節</button>
+                <button id="export-toc-btn" class="btn btn-sm" title="將目前目次匯出為文字檔"><i class="fas fa-file-export"></i> 匯出</button>
+                <label for="import-toc-input" class="btn btn-sm" title="從文字檔匯入目次"><i class="fas fa-file-import"></i> 匯入</label>
+                <input type="file" id="import-toc-input" accept=".txt" style="display: none;">
             </div>
+        </div>
+        <div id="recompose-toc-list" class="toc-list">
+            <p class="toc-placeholder">選擇頁面後將在此處生成目次...</p>
+        </div>
+    </div>
         </div>
         <div class="modal-footer">
             <p class="selection-status">已選擇 <span id="selected-pages-count">0</span> 頁</p>
