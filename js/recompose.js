@@ -1,9 +1,8 @@
-// in js/recompose.js
-
 import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
 
+// --- Module-level State ---
 let selectedRecomposePages = new Set();
 let tocData = []; // 儲存目次資訊: [{ globalPage, text, newPageNum }]
 let recomposeThumbnailObserver = null;
@@ -110,7 +109,7 @@ function renderTocList() {
 
         const label = document.createElement('span');
         label.className = 'page-label';
-        label.textContent = `→ 新頁碼 ${item.newPageNum + 1}`; // 頁碼+1，因為目次是第1頁
+        label.textContent = `→ 新頁碼 ${item.newPageNum + 1}`;
 
         tocItemDiv.appendChild(input);
         tocItemDiv.appendChild(label);
@@ -153,7 +152,7 @@ function populateRecomposePageList() {
         img.dataset.docIndex = pageInfo.docIndex;
         img.dataset.localPage = pageInfo.localPage;
         img.alt = `Page ${globalPage}`;
-        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='; // 透明佔位符
+        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
         const pageLabel = document.createElement('div');
         pageLabel.className = 'page-label';
@@ -214,50 +213,102 @@ async function generateNewPdf(fileName, currentTocData) {
     dom.generateNewPdfBtn.disabled = true;
     dom.generateNewPdfBtn.innerHTML = '生成中...';
 
-    // **變更點 1: 從 window 物件中獲取 PDFDocument 和 fontkit**
-    const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
-    const fontkit = window.fontkit;
+    const { PDFDocument, rgb } = window.PDFLib;
 
-    if (!fontkit) {
-        showFeedback('字體引擎 fontkit 載入失敗！');
-        console.error('fontkit is not loaded. Please check the script tag in your HTML.');
-        dom.generateNewPdfBtn.disabled = false;
-        dom.generateNewPdfBtn.innerHTML = '生成 PDF 檔案';
-        return;
-    }
-
-    const newPdfDoc = await PDFDocument.create();
-    
-    // **變更點 2: 在創建 PDF 後，立刻註冊 fontkit**
-    newPdfDoc.registerFontkit(fontkit);
-
-    const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
+    const getFontkit = () => {
+        return new Promise((resolve, reject) => {
+            if (window.fontkit) return resolve(window.fontkit);
+            let attempts = 0;
+            const interval = setInterval(() => {
+                if (window.fontkit) {
+                    clearInterval(interval);
+                    return resolve(window.fontkit);
+                }
+                attempts++;
+                if (attempts > 50) { // Wait max 5 seconds
+                    clearInterval(interval);
+                    reject(new Error('字體引擎 fontkit 載入超時！'));
+                }
+            }, 100);
+        });
+    };
 
     try {
-        // 載入本地的中文字體檔案
-        const fontUrl = './fonts/BiauKai.ttf'; // <-- 確保這個路徑在您的 GitHub 倉庫中是正確的！
+        const fontkit = await getFontkit();
+        const newPdfDoc = await PDFDocument.create();
+        newPdfDoc.registerFontkit(fontkit);
+
+        const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
+
+        const fontUrl = './fonts/BiauKai.ttf'; // 確保您的標楷體檔案在此路徑
         const fontBytes = await fetch(fontUrl).then(res => {
-            if (!res.ok) {
-                throw new Error(`字體檔案載入失敗: ${res.status} ${res.statusText}`);
-            }
+            if (!res.ok) throw new Error(`字體檔案載入失敗: ${res.status}`);
             return res.arrayBuffer();
         });
         
-        // 將字體嵌入到 PDF 文件中
         const customFont = await newPdfDoc.embedFont(fontBytes);
 
-        // ... (後續創建目次頁、複製頁面、保存下載的程式碼完全不需要修改) ...
-        // ...
-        
         // 步驟 1: 創建並加入目次頁
         const tocPage = newPdfDoc.addPage();
-        // ... (繪製文字的邏輯完全相同)
+        const { width, height } = tocPage.getSize();
+        const fontSizeTitle = 24;
+        const fontSizeItem = 12;
+        let y = height - 70;
+
+        tocPage.drawText('目次', {
+            x: 50, y: y, font: customFont, size: fontSizeTitle, color: rgb(0, 0, 0),
+        });
+        y -= 40;
+
+        currentTocData.forEach(item => {
+            if (y < 50) return;
+            const pageNumberText = `${item.newPageNum + 1}`;
+            const lineText = `${item.text}`;
+            const lineWidth = customFont.widthOfTextAtSize(lineText, fontSizeItem);
+            const pageNumWidth = customFont.widthOfTextAtSize(pageNumberText, fontSizeItem);
+            const dotsWidth = width - 100 - lineWidth - pageNumWidth - 10;
+            const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / customFont.widthOfTextAtSize('.', fontSizeItem))));
+            
+            tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, {
+                x: 60, y: y, font: customFont, size: fontSizeItem, color: rgb(0.2, 0.2, 0.2),
+            });
+            y -= 20;
+        });
 
         // 步驟 2: 複製使用者選擇的頁面
-        // ... (複製頁面的邏輯完全相同)
+        const sourceDocs = new Map();
+        for (const globalPageNum of sortedPages) {
+            const pageInfo = getDocAndLocalPage(globalPageNum);
+            if (!pageInfo) continue;
+
+            let sourcePdfDoc;
+            if (sourceDocs.has(pageInfo.docIndex)) {
+                sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
+            } else {
+                const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
+                if (!sourcePdfBytes) continue;
+                sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
+                sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
+            }
+            
+            const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
+            newPdfDoc.addPage(copiedPage);
+        }
 
         // 步驟 3: 保存並下載
-        // ... (保存下載的邏輯完全相同)
+        const pdfBytes = await newPdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        showFeedback(`已生成新 PDF: ${link.download}`);
+        hideRecomposePanel();
 
     } catch (error) {
         console.error('生成新 PDF 失敗:', error);
