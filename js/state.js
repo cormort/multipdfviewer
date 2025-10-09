@@ -71,6 +71,8 @@ export function initializeDom() {
         newPdfNameInput: document.getElementById('newPdfName'),
         generateNewPdfBtn: document.getElementById('generate-new-pdf-btn'),
         selectedPagesCountSpan: document.getElementById('selected-pages-count'),
+        addTocCheckbox: document.getElementById('add-toc-checkbox'),
+        addNewPagenumberCheckbox: document.getElementById('add-new-pagenumber-checkbox'),
     };
 }
 
