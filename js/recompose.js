@@ -1,22 +1,23 @@
+// in js/recompose.js
+
+// **變更點 1: 從 CDN 的 ES Module 版本直接導入所有需要的函式庫**
+import { PDFDocument, rgb } from 'https://unpkg.com/pdf-lib/dist/pdf-lib.esm.js';
+import fontkit from 'https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.es.js';
+
+// 從本地模組導入
 import { dom, appState } from './state.js';
 import { getDocAndLocalPage } from './viewer.js';
 import { showFeedback } from './utils.js';
 
 // --- Module-level State ---
 let selectedRecomposePages = new Set();
-let tocData = []; // 儲存目次資訊: [{ globalPage, text, newPageNum }]
+let tocData = [];
 let recomposeThumbnailObserver = null;
 
 // --- Helper Function ---
-/**
- * 獲取指定 PDF 頁面的第一行文字作為預設目次標題。
- * @param {number} globalPageNum - 全局頁碼。
- * @returns {Promise<string>} 頁面的第一行文字。
- */
 async function getFirstLineOfText(globalPageNum) {
     const pageInfo = getDocAndLocalPage(globalPageNum);
     if (!pageInfo) return "未知頁面";
-
     try {
         const page = await pageInfo.doc.getPage(pageInfo.localPage);
         const textContent = await page.getTextContent();
@@ -32,7 +33,6 @@ async function getFirstLineOfText(globalPageNum) {
 }
 
 // --- UI and State Management ---
-
 export function showRecomposePanel() {
     if (appState.pdfDocs.length === 0) {
         showFeedback('請先載入 PDF 檔案！');
@@ -89,28 +89,21 @@ async function togglePageSelection(globalPage, element) {
 function renderTocList() {
     const tocList = dom.recomposeTocList;
     tocList.innerHTML = '';
-
     if (tocData.length === 0) {
         tocList.innerHTML = `<p class="toc-placeholder">選擇頁面後將在此處生成目次...</p>`;
         return;
     }
-
     tocData.forEach(item => {
         const tocItemDiv = document.createElement('div');
         tocItemDiv.className = 'toc-item';
-
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'form-control';
         input.value = item.text;
-        input.oninput = (e) => {
-            item.text = e.target.value;
-        };
-
+        input.oninput = (e) => { item.text = e.target.value; };
         const label = document.createElement('span');
         label.className = 'page-label';
         label.textContent = `→ 新頁碼 ${item.newPageNum + 1}`;
-
         tocItemDiv.appendChild(input);
         tocItemDiv.appendChild(label);
         tocList.appendChild(tocItemDiv);
@@ -118,14 +111,9 @@ function renderTocList() {
 }
 
 // --- Thumbnail List Population ---
-
 function populateRecomposePageList() {
-    dom.recomposePageList.innerHTML = '<p style="padding: 10px; text-align: center;">載入頁面中...</p>';
-
-    if (recomposeThumbnailObserver) {
-        recomposeThumbnailObserver.disconnect();
-    }
-
+    dom.recomposePageList.innerHTML = '<p>載入頁面中...</p>';
+    if (recomposeThumbnailObserver) recomposeThumbnailObserver.disconnect();
     recomposeThumbnailObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -137,35 +125,26 @@ function populateRecomposePageList() {
             }
         });
     }, { root: dom.recomposePageList, rootMargin: '0px 0px 200px 0px' });
-
     dom.recomposePageList.innerHTML = '';
-
     for (let globalPage = 1; globalPage <= appState.globalTotalPages; globalPage++) {
         const pageInfo = getDocAndLocalPage(globalPage);
         if (!pageInfo) continue;
-
         const thumbnailItem = document.createElement('div');
         thumbnailItem.className = 'recompose-thumbnail-item';
         thumbnailItem.dataset.globalPage = globalPage;
-
         const img = document.createElement('img');
         img.dataset.docIndex = pageInfo.docIndex;
         img.dataset.localPage = pageInfo.localPage;
         img.alt = `Page ${globalPage}`;
         img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-
         const pageLabel = document.createElement('div');
         pageLabel.className = 'page-label';
-        const cleanName = pageInfo.docName.replace(/\.pdf$/i, '');
         pageLabel.textContent = `P.${globalPage}`;
-        pageLabel.title = `檔案: ${cleanName}, 本地頁: ${pageInfo.localPage}`;
-
+        pageLabel.title = `檔案: ${pageInfo.docName}, 本地頁: ${pageInfo.localPage}`;
         thumbnailItem.appendChild(img);
         thumbnailItem.appendChild(pageLabel);
-
         thumbnailItem.addEventListener('click', () => togglePageSelection(globalPage, thumbnailItem));
         dom.recomposePageList.appendChild(thumbnailItem);
-        
         recomposeThumbnailObserver.observe(thumbnailItem);
     }
 }
@@ -174,32 +153,24 @@ async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
     try {
         const doc = appState.pdfDocs[docIndex];
         if (!doc) return;
-        
         const page = await doc.getPage(localPageNum);
         const viewport = page.getViewport({ scale: 1 });
-        const THUMBNAIL_WIDTH = 150;
-        const scale = THUMBNAIL_WIDTH / viewport.width;
-        const scaledViewport = page.getViewport({ scale: scale });
-
+        const scale = 150 / viewport.width;
+        const scaledViewport = page.getViewport({ scale });
         const canvasEl = document.createElement('canvas');
         const thumbnailCtx = canvasEl.getContext('2d');
         canvasEl.height = scaledViewport.height;
         canvasEl.width = scaledViewport.width;
-        
         const renderContext = { canvasContext: thumbnailCtx, viewport: scaledViewport };
         await page.render(renderContext).promise;
-        
-        const dataUrl = canvasEl.toDataURL('image/jpeg', 0.8);
-        imgElement.src = dataUrl;
-
+        imgElement.src = canvasEl.toDataURL('image/jpeg', 0.8);
     } catch (error) {
-        console.error(`Failed to render recompose thumbnail for doc ${docIndex} page ${localPageNum}:`, error);
+        console.error(`Failed to render thumbnail:`, error);
         imgElement.alt = "渲染失敗";
     }
 }
 
 // --- PDF Generation ---
-
 export function triggerGeneratePdf(fileName) {
     generateNewPdf(fileName, tocData);
 }
@@ -209,78 +180,46 @@ async function generateNewPdf(fileName, currentTocData) {
         showFeedback('請至少選擇一頁！');
         return;
     }
-
     dom.generateNewPdfBtn.disabled = true;
     dom.generateNewPdfBtn.innerHTML = '生成中...';
 
-    const { PDFDocument, rgb } = window.PDFLib;
-
-    const getFontkit = () => {
-        return new Promise((resolve, reject) => {
-            if (window.fontkit) return resolve(window.fontkit);
-            let attempts = 0;
-            const interval = setInterval(() => {
-                if (window.fontkit) {
-                    clearInterval(interval);
-                    return resolve(window.fontkit);
-                }
-                attempts++;
-                if (attempts > 50) { // Wait max 5 seconds
-                    clearInterval(interval);
-                    reject(new Error('字體引擎 fontkit 載入超時！'));
-                }
-            }, 100);
-        });
-    };
-
     try {
-        const fontkit = await getFontkit();
+        // **變更點 2: 直接使用導入的函式庫，不再需要 getFontkit 或從 window 獲取**
         const newPdfDoc = await PDFDocument.create();
         newPdfDoc.registerFontkit(fontkit);
 
         const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
 
-        const fontUrl = './fonts/BiauKai.ttf'; // 確保您的標楷體檔案在此路徑
+        const fontUrl = './fonts/BiauKai.ttf';
         const fontBytes = await fetch(fontUrl).then(res => {
             if (!res.ok) throw new Error(`字體檔案載入失敗: ${res.status}`);
             return res.arrayBuffer();
         });
-        
         const customFont = await newPdfDoc.embedFont(fontBytes);
 
-        // 步驟 1: 創建並加入目次頁
+        // 步驟 1: 創建目次頁
         const tocPage = newPdfDoc.addPage();
         const { width, height } = tocPage.getSize();
-        const fontSizeTitle = 24;
-        const fontSizeItem = 12;
         let y = height - 70;
-
-        tocPage.drawText('目次', {
-            x: 50, y: y, font: customFont, size: fontSizeTitle, color: rgb(0, 0, 0),
-        });
+        tocPage.drawText('目次', { x: 50, y: y, font: customFont, size: 24, color: rgb(0, 0, 0) });
         y -= 40;
-
         currentTocData.forEach(item => {
             if (y < 50) return;
             const pageNumberText = `${item.newPageNum + 1}`;
             const lineText = `${item.text}`;
-            const lineWidth = customFont.widthOfTextAtSize(lineText, fontSizeItem);
-            const pageNumWidth = customFont.widthOfTextAtSize(pageNumberText, fontSizeItem);
+            const lineWidth = customFont.widthOfTextAtSize(lineText, 12);
+            const pageNumWidth = customFont.widthOfTextAtSize(pageNumberText, 12);
             const dotsWidth = width - 100 - lineWidth - pageNumWidth - 10;
-            const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / customFont.widthOfTextAtSize('.', fontSizeItem))));
-            
-            tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, {
-                x: 60, y: y, font: customFont, size: fontSizeItem, color: rgb(0.2, 0.2, 0.2),
-            });
+            const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / customFont.widthOfTextAtSize('.', 12))));
+            tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, { x: 60, y: y, font: customFont, size: 12, color: rgb(0.2, 0.2, 0.2) });
             y -= 20;
         });
 
-        // 步驟 2: 複製使用者選擇的頁面
+        // 步驟 2: 複製頁面
         const sourceDocs = new Map();
         for (const globalPageNum of sortedPages) {
             const pageInfo = getDocAndLocalPage(globalPageNum);
             if (!pageInfo) continue;
-
             let sourcePdfDoc;
             if (sourceDocs.has(pageInfo.docIndex)) {
                 sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
@@ -290,15 +229,13 @@ async function generateNewPdf(fileName, currentTocData) {
                 sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
                 sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
             }
-            
             const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
             newPdfDoc.addPage(copiedPage);
         }
 
-        // 步驟 3: 保存並下載
+        // 步驟 3: 保存下載
         const pdfBytes = await newPdfDoc.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
@@ -306,7 +243,6 @@ async function generateNewPdf(fileName, currentTocData) {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
-
         showFeedback(`已生成新 PDF: ${link.download}`);
         hideRecomposePanel();
 
