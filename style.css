@@ -299,30 +299,21 @@ body {
     position: relative;
 }
 
-.text-layer, #drawing-canvas {
+.textLayer, #drawing-canvas {
     position: absolute;
     pointer-events: none;
 }
 
-.text-layer {
+.textLayer {
     z-index: 10;
 }
 
-.text-layer.text-selection-active {
+.textLayer.text-selection-active {
     pointer-events: auto;
 }
 
-.text-layer ::selection {
+.textLayer ::selection {
     background: rgba(0, 123, 255, 0.4);
-}
-
-/* Using CSS variables for PDF.js rendered text layer spans */
-.text-layer > span {
-    color: transparent;
-    position: absolute;
-    white-space: pre;
-    cursor: text;
-    transform-origin: 0% 0%;
 }
 
 #drawing-canvas {
@@ -410,7 +401,7 @@ body {
     border-top: 1px solid var(--border-color);
     margin-top: 16px;
     padding-top: 12px;
-    max-height: 40vh; /* Relative to viewport height */
+    max-height: 40vh;
     overflow-y: auto;
 }
 
@@ -470,7 +461,7 @@ body {
     background-color: var(--surface-color);
     border-radius: 12px;
     width: 90vw;
-    max-width: 1000px; /* 增加最大寬度 */
+    max-width: 1000px;
     height: 90vh;
     display: flex;
     flex-direction: column;
@@ -494,24 +485,18 @@ body {
 
 .modal-body {
     flex-grow: 1;
-    overflow: hidden; /* 重要的改變 */
-    display: flex; /* 使用 Flexbox 佈局 */
+    overflow: hidden;
+    display: flex;
     gap: 16px;
     padding: 24px;
 }
 
-.recompose-selection-pane {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0; /* 確保內容不會溢出 */
-}
-
+.recompose-selection-pane,
 .recompose-toc-pane {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0; /* 確保內容不會溢出 */
+    min-width: 0;
 }
 
 .recompose-selection-pane h4,
@@ -529,6 +514,23 @@ body {
     padding: 12px;
     overflow-y: auto;
     flex-grow: 1;
+}
+
+.toc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.toc-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8rem;
 }
 
 .toc-list {
@@ -552,6 +554,22 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    padding: 4px 0;
+}
+
+.toc-item.is-chapter {
+    margin-top: 8px;
+}
+
+.toc-item .original-page-label {
+    font-size: 0.8em;
+    color: var(--text-secondary-color);
+    background-color: #e9ecef;
+    padding: 4px 6px;
+    border-radius: 4px;
+    min-width: 40px;
+    text-align: center;
+    font-weight: 500;
 }
 
 .toc-item input[type="text"] {
@@ -560,11 +578,32 @@ body {
     padding: 6px 8px;
 }
 
+.toc-item.is-chapter input[type="text"] {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
 .toc-item .page-label {
     font-size: 0.9em;
     color: var(--text-secondary-color);
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 80px;
+    text-align: right;
+}
+
+.toc-item .delete-item-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    cursor: pointer;
+    padding: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.toc-item:hover .delete-item-btn {
+    opacity: 1;
 }
 
 .modal-footer {
@@ -573,11 +612,99 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 16px;
 }
 
 .modal-footer .selection-status {
-    margin-right: auto; /* Push buttons to the right */
+    margin-right: auto;
+}
+
+.footer-options {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-right: 20px;
+}
+
+.footer-options div {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.footer-options label {
+    font-size: 0.9em;
+    color: var(--text-secondary-color);
+    cursor: pointer;
+}
+
+.thumbnail-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
+}
+
+.recompose-thumbnail-item {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    transition: all 0.2s ease;
+    background-color: var(--surface-alt-color);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+}
+
+.recompose-thumbnail-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.recompose-thumbnail-item.selected {
+    border-color: var(--primary-color);
+}
+
+.thumbnail-checkbox {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    pointer-events: none;
+}
+
+.recompose-thumbnail-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+    background-color: #e9ecef;
+}
+
+.recompose-thumbnail-item .page-label {
+    padding: 8px;
+    font-size: 0.75rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- SortableJS Drag & Drop Styles --- */
+.toc-item .drag-handle {
+    cursor: grab;
+    color: #adb5bd;
+    padding: 4px;
+    font-size: 1.2em;
+}
+
+.toc-item:active .drag-handle {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #e6f2ff;
+    border: 1px dashed var(--primary-color);
 }
 
 /* --- Responsive Design --- */
@@ -623,109 +750,10 @@ body {
         justify-content: center;
     }
     .nav-group:not(:first-child):not(:last-child) {
-        display: none; /* Hide middle nav groups on small screens */
+        display: none;
     }
-}
-/* --- Recompose Panel Enhancements v2 --- */
-.toc-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
 
-.toc-header h4 {
-    margin: 0;
-}
-
-.toc-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.btn.btn-sm {
-    padding: 4px 8px;
-    font-size: 0.8rem;
-}
-
-.toc-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-}
-
-.toc-item.is-chapter {
-    margin-top: 8px; /* Add some space above chapters */
-}
-
-.toc-item .original-page-label {
-    font-size: 0.8em;
-    color: var(--text-secondary-color);
-    background-color: #e9ecef;
-    padding: 4px 6px;
-    border-radius: 4px;
-    min-width: 40px;
-    text-align: center;
-    font-weight: 500;
-}
-
-.toc-item input[type="text"] {
-    flex-grow: 1;
-    font-size: 0.9em;
-    padding: 6px 8px;
-}
-
-.toc-item.is-chapter input[type="text"] {
-    font-weight: bold;
-    color: var(--primary-color);
-}
-
-.toc-item .page-label {
-    font-size: 0.9em;
-    color: var(--text-secondary-color);
-    white-space: nowrap;
-    flex-shrink: 0;
-    min-width: 80px; /* Ensure alignment */
-    text-align: right;
-}
-
-.toc-item .delete-item-btn {
-    background: none;
-    border: none;
-    color: var(--danger-color);
-    cursor: pointer;
-    padding: 4px;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-}
-
-.toc-item:hover .delete-item-btn {
-    opacity: 1;
-}
-/* --- SortableJS Drag & Drop Styles --- */
-.toc-item {
-    /* ... (保留原有樣式) ... */
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-}
-
-.toc-item .drag-handle {
-    cursor: grab;
-    color: #adb5bd;
-    padding: 4px;
-    font-size: 1.2em;
-}
-
-.toc-item:active .drag-handle {
-    cursor: grabbing;
-}
-
-/* Style for the placeholder element while dragging */
-.sortable-ghost {
-    opacity: 0.4;
-    background-color: #e6f2ff;
-    border: 1px dashed var(--primary-color);
+    .modal-body {
+        flex-direction: column;
+    }
 }
