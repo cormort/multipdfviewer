@@ -219,35 +219,25 @@ async function generateNewPdf(fileName, currentTocData) {
     const sortedPages = Array.from(selectedRecomposePages).sort((a, b) => a - b);
 
     try {
+        // **變更點 1: 載入本地的中文字體檔案**
+        const fontUrl = './fonts/SourceHanSansTC-Regular.otf'; // 字體檔案的路徑
+        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+        
+        // **變更點 2: 將字體嵌入到 PDF 文件中**
+        const customFont = await newPdfDoc.embedFont(fontBytes);
+
         // 步驟 1: 創建並加入目次頁
         const tocPage = newPdfDoc.addPage();
         const { width, height } = tocPage.getSize();
-
-        // **變更點: 嵌入一個不同的標準字體，或一個自訂的中文字體**
-        // 為了避免需要額外檔案，我們先嘗試 TimesRoman。
-        // 注意：這仍然不是 100% 可靠的解決方案，最好的方法是嵌入一個真正的中文字體。
-        const font = await newPdfDoc.embedFont(StandardFonts.TimesRoman);
-        
         const fontSizeTitle = 24;
         const fontSizeItem = 12;
         let y = height - 70;
 
-        // **變更點 2: 在繪製文字時，加入一個 fallback 選項**
-        const drawTextSafe = (text, options) => {
-            try {
-                tocPage.drawText(text, options);
-            } catch (e) {
-                console.warn(`字體無法編碼: "${text}"。使用替代文字。`);
-                // 將無法顯示的字符替換為方塊
-                const fallbackText = text.replace(/[^\x00-\xFF]/g, '□');
-                tocPage.drawText(fallbackText, options);
-            }
-        };
-
-        drawTextSafe('目次', {
+        // **變更點 3: 使用我們嵌入的自訂字體**
+        tocPage.drawText('目次', {
             x: 50,
             y: y,
-            font,
+            font: customFont, // <-- 使用自訂字體
             size: fontSizeTitle,
             color: rgb(0, 0, 0),
         });
@@ -257,23 +247,63 @@ async function generateNewPdf(fileName, currentTocData) {
             if (y < 50) return;
             const pageNumberText = `${item.newPageNum + 1}`;
             const lineText = `${item.text}`;
-            // ... (計算點線的邏輯保持不變)
             
-            drawTextSafe(`${lineText} ${dots} ${pageNumberText}`, {
+            // 計算點線的邏輯保持不變
+            const lineWidth = customFont.widthOfTextAtSize(lineText, fontSizeItem);
+            const pageNumWidth = customFont.widthOfTextAtSize(pageNumberText, fontSizeItem);
+            const dotsWidth = width - 100 - lineWidth - pageNumWidth - 10;
+            const dots = '.'.repeat(Math.max(0, Math.floor(dotsWidth / customFont.widthOfTextAtSize('.', fontSizeItem))));
+            
+            tocPage.drawText(`${lineText} ${dots} ${pageNumberText}`, {
                 x: 60,
                 y: y,
-                font,
+                font: customFont, // <-- 使用自訂字體
                 size: fontSizeItem,
                 color: rgb(0.2, 0.2, 0.2),
             });
             y -= 20;
         });
 
-        // ... (步驟 2 和 3 保持不變)
+        // 步驟 2: 複製使用者選擇的頁面 (這部分邏輯保持不變)
+        const sourceDocs = new Map();
+        for (const globalPageNum of sortedPages) {
+            const pageInfo = getDocAndLocalPage(globalPageNum);
+            if (!pageInfo) continue;
+
+            let sourcePdfDoc;
+            if (sourceDocs.has(pageInfo.docIndex)) {
+                sourcePdfDoc = sourceDocs.get(pageInfo.docIndex);
+            } else {
+                const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
+                if (!sourcePdfBytes) continue;
+                sourcePdfDoc = await PDFDocument.load(sourcePdfBytes);
+                sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
+            }
+            
+            const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [pageInfo.localPage - 1]);
+            newPdfDoc.addPage(copiedPage);
+        }
+
+        // 步驟 3: 保存並下載 (這部分邏輯保持不變)
+        const pdfBytes = await newPdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        showFeedback(`已生成新 PDF: ${link.download}`);
+        hideRecomposePanel();
 
     } catch (error) {
-        // ...
+        console.error('生成新 PDF 失敗:', error);
+        showFeedback('生成新 PDF 失敗！請參閱控制台。');
     } finally {
-        // ...
+        dom.generateNewPdfBtn.disabled = false;
+        dom.generateNewPdfBtn.innerHTML = '生成 PDF 檔案';
     }
 }
