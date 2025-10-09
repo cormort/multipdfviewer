@@ -1,3 +1,5 @@
+// in js/app.js
+
 // 從本地模組導入
 import { dom, appState, resetAppState, initializeDom } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
@@ -61,22 +63,45 @@ async function loadFilesIntoApp(loadedFileData) {
  * 應用程式的主初始化函數。
  */
 async function initializeApp() {
-    // **變更點: 使用全域的 pdfjsLib，並提供 worker 的 CDN 路徑**
-    if (typeof window.pdfjsLib !== 'undefined') {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
-    } else {
-        console.error("pdf.js library is not loaded from script tag!");
-        showFeedback("核心 PDF 函式庫載入失敗，請重新整理頁面。");
-        return;
-    }
+    // **↓↓↓ 關鍵的修正點在這裡 ↓↓↓**
 
-    initializeDom();
-    UI.initEventHandlers();
-    Viewer.initLocalMagnifier();
-    Search.initThumbnailObserver();
-    UI.updateUIForNewState();
-    
+    // 1. 創建一個 Promise 來等待 pdfjsLib 載入完成
+    const waitForPdfJs = () => {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const interval = setInterval(() => {
+                if (typeof window.pdfjsLib !== 'undefined') {
+                    clearInterval(interval);
+                    resolve(window.pdfjsLib);
+                }
+                attempts++;
+                if (attempts > 100) { // 等待最多 10 秒
+                    clearInterval(interval);
+                    reject(new Error("pdf.js library failed to load from script tag!"));
+                }
+            }, 100);
+        });
+    };
+
     try {
+        // 2. 在執行任何操作之前，先等待 pdfjsLib 準備就緒
+        const pdfjsLib = await waitForPdfJs();
+        
+        // 3. 設定 worker 路徑
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+
+        // 4. 初始化 DOM 元素的引用
+        initializeDom();
+
+        // 5. 綁定所有事件監聽器
+        UI.initEventHandlers();
+        Viewer.initLocalMagnifier();
+        Search.initThumbnailObserver();
+        
+        // 6. 根據初始狀態更新 UI
+        UI.updateUIForNewState();
+
+        // 7. 嘗試從 IndexedDB 恢復工作階段
         await initDB();
         const storedFiles = await getFiles();
         if (storedFiles.length > 0) {
@@ -103,8 +128,10 @@ async function initializeApp() {
             }
         }
     } catch (error) {
-        console.error("Could not initialize app from IndexedDB:", error);
+        console.error("App initialization failed:", error);
+        showFeedback(error.message || "應用程式初始化失敗。");
     }
 }
 
+// 當 DOM 完全載入後，啟動應用程式
 document.addEventListener('DOMContentLoaded', initializeApp);
