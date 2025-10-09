@@ -1,6 +1,20 @@
 // in js/state.js
 
-// 這個檔案是應用程式共享狀態的唯一來源 (Single Source of Truth)
+// **變更點 1: 將 dom 宣告為一個可被修改的 let 變數**
+export let dom = {};
+
+// **變更點 2: 創建一個新的函數來填充 dom 物件**
+export function initializeDom() {
+    dom = {
+        appContainer: document.getElementById('app-container'),
+        toolbar: document.getElementById('toolbar'),
+        // ... (複製您之前 dom 物件中的所有 getElementById 內容到這裡)
+        // ...
+        recomposeTocList: document.getElementById('recompose-toc-list'), // 確保這一行在裡面
+        // ...
+        selectedPagesCountSpan: document.getElementById('selected-pages-count'),
+    };
+}
 
 // 1. 集中管理所有 DOM 元素的引用
 export const dom = {
