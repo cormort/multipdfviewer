@@ -338,7 +338,7 @@ async function generateNewPdf(fileName, currentTocData) {
         const newPdfDoc = await PDFDocument.create();
         newPdfDoc.registerFontkit(fontkit);
 
-        const fontUrl = './fonts/BiauKai.ttf';
+        const fontUrl = './fonts/SourceHanSansTC-Regular.otf';
         const fontBytes = await fetch(fontUrl).then(res => res.ok ? res.arrayBuffer() : Promise.reject(`字體檔案載入失敗: ${res.status}`));
         const customFont = await newPdfDoc.embedFont(fontBytes);
 
