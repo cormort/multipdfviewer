@@ -96,7 +96,6 @@ function updateUiComponents() {
     if (dom.selectedPagesCountSpan) dom.selectedPagesCountSpan.textContent = selectedRecomposePages.size;
     if (dom.generateNewPdfBtn) dom.generateNewPdfBtn.disabled = selectedRecomposePages.size === 0;
     
-    // 同步縮圖的核取方塊狀態
     dom.recomposePageList.querySelectorAll('.recompose-thumbnail-item').forEach(thumb => {
         const page = parseInt(thumb.dataset.globalPage, 10);
         const checkbox = thumb.querySelector('.thumbnail-checkbox');
@@ -184,7 +183,7 @@ function renderTocList() {
         if (item.type === 'page') {
             const newPageLabel = document.createElement('span');
             newPageLabel.className = 'page-label';
-            newPageLabel.textContent = `→ 新頁碼 ${item.newPageNum + 1}`;
+            newPageLabel.textContent = `→ 新頁碼 ${item.newPageNum + (dom.addTocCheckbox.checked ? 1 : 0)}`;
             tocItemDiv.appendChild(newPageLabel);
         }
         tocItemDiv.appendChild(deleteBtn);
@@ -328,8 +327,8 @@ async function renderRecomposeThumbnail(docIndex, localPageNum, imgElement) {
 
 // --- PDF Generation ---
 export function triggerGeneratePdf(fileName) {
-    const addToc = document.getElementById('add-toc-checkbox').checked;
-    const addPageNumbers = document.getElementById('add-new-pagenumber-checkbox').checked;
+    const addToc = dom.addTocCheckbox.checked;
+    const addPageNumbers = dom.addNewPagenumberCheckbox.checked;
     generateNewPdf(fileName, tocData, addToc, addPageNumbers);
 }
 
@@ -398,13 +397,11 @@ async function generateNewPdf(fileName, currentTocData, addToc, addPageNumbers) 
         const sourceDocs = new Map();
         for (const item of pagesToCopy) {
             const pageInfo = getDocAndLocalPage(item.globalPage);
-            if (!pageInfo) continue;
-            if (!sourceDocs.has(pageInfo.docIndex)) {
-                const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
-                if (sourcePdfBytes) {
-                    const sourcePdfDoc = await PDFDocument.load(sourcePdfBytes, { updateMetadata: false });
-                    sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
-                }
+            if (!pageInfo || sourceDocs.has(pageInfo.docIndex)) continue;
+            const sourcePdfBytes = appState.pdfArrayBuffers[pageInfo.docIndex];
+            if (sourcePdfBytes) {
+                const sourcePdfDoc = await PDFDocument.load(sourcePdfBytes, { updateMetadata: false });
+                sourceDocs.set(pageInfo.docIndex, sourcePdfDoc);
             }
         }
 
