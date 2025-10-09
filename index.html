@@ -7,7 +7,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/pdfjs-dist@4.0.379/web/pdf_viewer.css" />
     <link rel="stylesheet" href="style.css">
-
+    
+    <!-- **變更點 1: 在這裡一次性載入所有第三方函式庫 (UMD 版本)** -->
+    <!-- PDF.js (主程式) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js"></script>
+    
+    <!-- pdf-lib (UMD 版本) -->
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    
+    <!-- fontkit (UMD 版本) -->
+    <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
+    
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
 <body>
     <div id="app-container">
@@ -219,7 +231,7 @@
     </div>
 
     <div id="feedback-message"></div>
-
+    <!-- **變更點 2: 我們的應用程式入口點，仍然是 module 類型** -->
     <script type="module" src="./js/app.js"></script>
 </body>
 </html>
