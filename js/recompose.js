@@ -24,10 +24,12 @@ async function getFirstLineOfText(globalPageNum) {
         const textContent = await page.getTextContent();
         if (textContent.items.length === 0) return `第 ${globalPageNum} 頁`;
 
-        // 1. 按 Y 軸（垂直）從上到下，再按 X 軸（水平）從左到右排序
+        // **↓↓↓ 關鍵的修正點在這裡 ↓↓↓**
+        // 1. 按 Y 軸（垂直）從上到下排序 (Y 值越大越靠下，所以用 b - a)
+        //    再按 X 軸（水平）從左到右排序 (X 值越小越靠左，所以用 a - b)
         const sortedItems = [...textContent.items].sort((a, b) => {
             if (a.transform[5] !== b.transform[5]) {
-                return a.transform[5] - b.transform[5];
+                return b.transform[5] - a.transform[5]; // <--- 修正排序順序
             }
             return a.transform[4] - b.transform[4];
         });
@@ -51,20 +53,17 @@ async function getFirstLineOfText(globalPageNum) {
         // 3. 遍歷所有行，找到第一個不是頁碼的行
         for (const lineText of lines) {
             const trimmedLine = lineText.trim();
-            if (trimmedLine.length === 0) continue; // 跳過空行
+            if (trimmedLine.length === 0) continue;
 
-            // 4. 判斷是否可能是頁碼的規則：
-            // - 長度小於等於 10
-            // - 只包含數字、空格、和三種常見的破折號
+            // 4. 判斷是否可能是頁碼的規則
             const isLikelyPageNumber = trimmedLine.length <= 10 && /^\s*[\d\s-–—]+\s*$/.test(trimmedLine);
 
             if (!isLikelyPageNumber) {
-                // 如果不是頁碼，這就是我們要的標題！
                 return trimmedLine.substring(0, 80);
             }
         }
 
-        // 5. 如果遍歷完所有行都是頁碼（或空行），則返回第一行的內容作為備用
+        // 5. 如果所有行都是頁碼，則返回第一行的內容作為備用
         if (lines.length > 0) {
             return lines[0].trim().substring(0, 80);
         }
