@@ -274,7 +274,9 @@ function populateRecomposePageList() {
                 observer.unobserve(entry.target);
             }
         });
-    }, { root: dom.recomposePageList, rootMargin: '0px 0px 200px 0px' });
+    }, { 
+        //root: dom.recomposePageList, 
+        rootMargin: '0px 0px 200px 0px' });
     dom.recomposePageList.innerHTML = '';
     for (let globalPage = 1; globalPage <= appState.globalTotalPages; globalPage++) {
         const pageInfo = getDocAndLocalPage(globalPage);
