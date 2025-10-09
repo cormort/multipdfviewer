@@ -626,3 +626,80 @@ body {
         display: none; /* Hide middle nav groups on small screens */
     }
 }
+/* --- Recompose Panel Enhancements v2 --- */
+.toc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.toc-header h4 {
+    margin: 0;
+}
+
+.toc-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+}
+
+.toc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.toc-item.is-chapter {
+    margin-top: 8px; /* Add some space above chapters */
+}
+
+.toc-item .original-page-label {
+    font-size: 0.8em;
+    color: var(--text-secondary-color);
+    background-color: #e9ecef;
+    padding: 4px 6px;
+    border-radius: 4px;
+    min-width: 40px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.toc-item input[type="text"] {
+    flex-grow: 1;
+    font-size: 0.9em;
+    padding: 6px 8px;
+}
+
+.toc-item.is-chapter input[type="text"] {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.toc-item .page-label {
+    font-size: 0.9em;
+    color: var(--text-secondary-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 80px; /* Ensure alignment */
+    text-align: right;
+}
+
+.toc-item .delete-item-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    cursor: pointer;
+    padding: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.toc-item:hover .delete-item-btn {
+    opacity: 1;
+}
