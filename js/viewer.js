@@ -169,30 +169,37 @@ export function renderPage(globalPageNum, highlightPattern = null) {
 function renderTextLayer(page, viewport, highlightPattern) {
     return page.getTextContent().then(textContent => {
         currentPageTextContent = textContent;
-        dom.textLayerDivGlobal.innerHTML = ''; // 清空舊的圖層
+        // 清空舊的圖層，確保沒有殘留
+        dom.textLayerDivGlobal.innerHTML = '';
 
-        // pdf.js v4+ 的推薦做法是直接將 textContent 傳遞給 renderTextLayer
-        // 它會自動創建並管理內部的 div 結構
-        pdfjsLib.renderTextLayer({
+        // **▼▼▼ 修正點 1: 使用 pdfjs-dist/build/pdf 這支 library 提供的 text layer builder ▼▼▼**
+        // 建立一個 TextLayerRenderTask 來處理渲染
+        const textLayerRenderTask = pdfjsLib.renderTextLayer({
             textContentSource: textContent,
             container: dom.textLayerDivGlobal,
             viewport: viewport,
         });
 
-        // 應用我們自訂的高亮
-        if (highlightPattern) {
-            // 使用 setTimeout 確保 pdf.js 的 DOM 操作已完成
-            setTimeout(() => {
-                // pdf.js 會將文字放在 <span> 元素中
-                const textSpans = dom.textLayerDivGlobal.querySelectorAll('span[role="presentation"]');
+        // 等待 text layer 渲染完成
+        return textLayerRenderTask.promise.then(() => {
+            // **▼▼▼ 修正點 2: 只有在渲染完成後，才進行高亮操作 ▼▼▼**
+            if (highlightPattern) {
+                // **▼▼▼ 修正點 3: 更新選擇器，直接尋找 textLayer 裡所有的 <span> ▼▼▼**
+                const textSpans = dom.textLayerDivGlobal.querySelectorAll('span');
+                
                 textSpans.forEach(span => {
-                    const newContent = span.innerHTML.replace(highlightPattern, (match) => `<span class="wavy-underline">${match}</span>`);
-                    if (newContent !== span.innerHTML) {
-                        span.innerHTML = newContent;
+                    // 使用 textContent 替換 innerHTML，避免重複加上 span
+                    const originalText = span.textContent;
+                    if (originalText) {
+                        const newHtml = originalText.replace(highlightPattern, (match) => `<span class="wavy-underline">${match}</span>`);
+                        if (newHtml !== originalText) {
+                            span.innerHTML = newHtml;
+                        }
                     }
                 });
-            }, 100); // 100ms 的延遲通常足夠
-        }
+            }
+        });
+
     }).catch(reason => console.error('Error rendering text layer:', reason));
 }
 
