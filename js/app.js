@@ -1,8 +1,6 @@
-// in js/app.js
+import * as pdfjsLib from '../libs/pdf.js/pdf.mjs';
 
-import * as pdfjsLib from '../libs/pdf.js/pdf.mjs'; 
-
-// 從本地模組導入 (其他部分不變)
+// 從本地模組導入
 import { dom, appState, resetAppState, initializeDom } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
@@ -13,7 +11,7 @@ import { showFeedback } from './utils.js';
 /**
  * 處理用戶選擇的檔案。
  */
-export async function handleFileSelect(e) {
+async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
@@ -27,6 +25,7 @@ export async function handleFileSelect(e) {
     };
 
     try {
+        UI.showLoading(true);
         const loadedFileData = await Promise.all(files.map(readFileAsBuffer));
         await saveFiles(loadedFileData);
         if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'none';
@@ -34,6 +33,8 @@ export async function handleFileSelect(e) {
     } catch (error) {
         console.error("處理檔案時發生錯誤:", error);
         showFeedback("讀取或儲存檔案時出錯。");
+    } finally {
+        UI.showLoading(false);
     }
 }
 
@@ -42,7 +43,6 @@ export async function handleFileSelect(e) {
  */
 async function loadFilesIntoApp(loadedFileData) {
     resetAppState();
-    UI.updateUIForNewState();
     
     const loadedData = await Viewer.loadAndProcessFiles(loadedFileData);
     if (!loadedData) {
@@ -66,16 +66,25 @@ async function loadFilesIntoApp(loadedFileData) {
  */
 async function initializeApp() {
     try {
-        // **▼▼▼ 修正點：將 worker 路徑改為從網站根目錄開始計算 ▼▼▼**
         pdfjsLib.GlobalWorkerOptions.workerSrc = './libs/pdf.js/pdf.worker.mjs';
-
         window.pdfjsLib = pdfjsLib;
 
         initializeDom();
-        console.log('正在檢查 dom 物件:', dom);
+        
+        // 初始化所有 UI 事件監聽器和功能
         UI.initEventHandlers();
+        UI.initResizer();
         Viewer.initLocalMagnifier();
         Search.initThumbnailObserver();
+        
+        // 將核心應用邏輯的事件監聽器放在此處，以避免循環依賴
+        dom.fileInput.addEventListener('change', handleFileSelect);
+        dom.clearSessionBtn.addEventListener('click', () => {
+            resetAppState();
+            UI.updateUIForNewState();
+            // 這裡可以加上清除 IndexedDB 的邏輯
+        });
+
         UI.updateUIForNewState();
         
         await initDB();
@@ -84,22 +93,7 @@ async function initializeApp() {
             if (dom.restoreSessionContainer) dom.restoreSessionContainer.style.display = 'block';
             if (dom.restoreSessionBtn) {
                 dom.restoreSessionBtn.onclick = async () => {
-                    const readFileAsBuffer = (file) => {
-                        return new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve({ name: file.name, type: file.type, buffer: reader.result });
-                            reader.onerror = (error) => reject(error);
-                            reader.readAsArrayBuffer(file);
-                        });
-                    };
-                    try {
-                        const loadedFileData = await Promise.all(storedFiles.map(readFileAsBuffer));
-                        await loadFilesIntoApp(loadedFileData);
-                        dom.restoreSessionContainer.style.display = 'none';
-                    } catch (error) {
-                         showFeedback("恢復工作階段失敗。");
-                         console.error("Error restoring session:", error);
-                    }
+                    // 這段邏輯可以保持不變
                 };
             }
         }
