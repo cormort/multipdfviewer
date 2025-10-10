@@ -1,6 +1,5 @@
 // in js/app.js
 
-// **變更點 1: 直接從本地端 import pdf.mjs**
 import * as pdfjsLib from '../libs/pdf.js/pdf.mjs'; 
 
 // 從本地模組導入 (其他部分不變)
@@ -66,17 +65,14 @@ async function loadFilesIntoApp(loadedFileData) {
  * 應用程式的主初始化函數。
  */
 async function initializeApp() {
-    // **變更點 2: 不再需要等待全域變數，直接設定 worker 路徑**
     try {
-        // 設定 worker 路徑，指向新的 .mjs 檔案
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `../libs/pdf.js/pdf.worker.mjs`;
+        // **▼▼▼ 修正點：將 worker 路徑改為從網站根目錄開始計算 ▼▼▼**
+        pdfjsLib.GlobalWorkerOptions.workerSrc = './libs/pdf.js/pdf.worker.mjs';
 
-        // 為了讓舊的 viewer.js 和 annotation.js 檔案能繼續運作，
-        // 我們手動將 import 進來的模組掛載到 window 上。
         window.pdfjsLib = pdfjsLib;
 
         initializeDom();
-        console.log('正在檢查 dom 物件:', dom); //debug 使用
+        console.log('正在檢查 dom 物件:', dom);
         UI.initEventHandlers();
         Viewer.initLocalMagnifier();
         Search.initThumbnailObserver();
