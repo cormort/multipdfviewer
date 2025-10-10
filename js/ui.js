@@ -1,7 +1,7 @@
 // in js/ui.js
 
 // 從本地模組導入
-import { dom, appState, resetAppState } from './state.js'; // <-- **關鍵的修正點：在這裡加入 resetAppState**
+import { dom, appState, resetAppState } from './state.js';
 import { handleFileSelect } from './app.js';
 import { goToPage, renderPage, toggleLocalMagnifier, updateMagnifierZoomLevel, updateLocalMagnifier } from './viewer.js';
 import { searchKeyword, rerenderAllThumbnails } from './search.js';
