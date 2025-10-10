@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF 文件瀏覽器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/pdfjs-dist@4.0.379/web/pdf_viewer.css" />
+    <link rel="stylesheet" href="https://unpkg.com/pdfjs-dist@4.4.168/web/pdf_viewer.css" />
     <link rel="stylesheet" href="style.css">
-    
-    </head>
+</head>
 <body>
-    <h1>這是一個測試，如果看到就代表HTML更新成功</h1>
     <div id="app-container">
         <div id="toolbar">
             <div class="toolbar-header">
@@ -168,11 +166,53 @@
     </div>
 
     <div id="recompose-panel" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>重新組成 PDF</h3>
+            </div>
+            <div class="modal-body">
+                <div class="recompose-selection-pane">
+                    <h4>1. 點擊選擇頁面 (支援 Shift 多選)</h4>
+                    <div id="recompose-page-list" class="thumbnail-list">
+                        <p>請先載入 PDF 檔案。</p>
+                    </div>
+                </div>
+                <div class="recompose-toc-pane">
+                    <div class="toc-header">
+                        <h4>2. 拖曳排序目次 (可選)</h4>
+                        <div class="toc-actions">
+                            <button id="add-chapter-btn" class="btn btn-sm" title="新增章節標題"><i class="fas fa-plus"></i> 新增章節</button>
+                            <button id="export-toc-btn" class="btn btn-sm" title="將目前目次匯出為文字檔"><i class="fas fa-file-export"></i> 匯出</button>
+                            <label for="import-toc-input" class="btn btn-sm" title="從文字檔匯入目次"><i class="fas fa-file-import"></i> 匯入</label>
+                            <input type="file" id="import-toc-input" accept=".txt" style="display: none;">
+                        </div>
+                    </div>
+                    <div id="recompose-toc-list" class="toc-list">
+                        <p class="toc-placeholder">選擇頁面或新增章節...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <p class="selection-status">已選擇 <span id="selected-pages-count">0</span> 頁</p>
+                <div class="footer-options">
+                    <div>
+                        <input type="checkbox" id="add-toc-checkbox" checked>
+                        <label for="add-toc-checkbox">產生目次</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="add-new-pagenumber-checkbox" checked>
+                        <label for="add-new-pagenumber-checkbox">添加新頁碼</label>
+                    </div>
+                </div>
+                <button id="close-recompose-panel" class="btn btn-secondary">關閉</button>
+                <button id="generate-new-pdf-btn" class="btn btn-primary">生成 PDF 檔案</button>
+            </div>
         </div>
+    </div>
 
     <div id="feedback-message"></div>
-    
-    <script src="./libs/pdf-lib/pdf-lib.min.js"></script>
+
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     
     <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
     
