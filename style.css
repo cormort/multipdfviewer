@@ -1,72 +1,62 @@
-/* --- CSS Variables for Theming --- */
-body {
-    min-width: 1200px; /* 設定頁面最小寬度為 1200 像素 */
-}
+/* === 全局樣式與變數定義 === */
 :root {
+    --toolbar-width: 280px; /* 工具列寬度，可在此統一修改 */
+    --navbar-height: 48px;  /* 頂部導航列高度 */
     --primary-color: #007bff;
-    --primary-hover-color: #0056b3;
+    --secondary-color: #6c757d;
     --danger-color: #dc3545;
-    --success-color: #28a745;
-    --background-color: #f0f2f5;
-    --surface-color: #ffffff;
-    --surface-alt-color: #f8f9fa;
+    --light-gray: #f8f9fa;
     --border-color: #dee2e6;
-    --text-primary-color: #212529;
-    --text-secondary-color: #6c757d;
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
-    --toolbar-width: 280px;
-    --border-radius: 6px;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* --- General & Reset --- */
-*, *::before, *::after {
+* {
     box-sizing: border-box;
 }
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+html, body {
+    height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
-    background-color: var(--background-color);
-    color: var(--text-primary-color);
+    overflow: hidden; /* 防止最外層頁面滾動 */
+    font-family: var(--font-family);
+    background-color: #e9ecef;
 }
 
-/* --- Main Layout --- */
+
+/* === 主佈局 (固定左側工具列) === */
 #app-container {
-    display: flex;
-    width: 100vw;
+    display: block; 
+    height: 100%;
+}
+
+#toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
     height: 100vh;
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: var(--toolbar-width);
+    overflow-y: auto;
+    background-color: var(--light-gray);
+    border-right: 1px solid var(--border-color);
+    z-index: 100;
+    padding-bottom: 20px;
 }
 
 #main-content {
-    flex-grow: 1;
-    display: flex;
-    overflow: hidden;
-}
-
-/* --- Toolbar --- */
-#toolbar {
-    width: var(--toolbar-width);
-    background-color: var(--surface-color);
-    box-shadow: var(--shadow-md);
+    margin-left: var(--toolbar-width);
+    height: 100vh;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    position: relative;
-    z-index: 100;
-    flex-shrink: 0;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+
+/* === 左側工具列內部樣式 === */
 .toolbar-header {
-    padding: 16px;
+    padding: 10px 15px;
     border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--surface-alt-color);
+    background-color: #fff;
 }
 
 .toolbar-header h2 {
@@ -74,24 +64,15 @@ body {
     font-size: 1.25rem;
 }
 
-.toolbar-content {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 8px;
-}
-
 .toolbar-section {
-    margin-bottom: 16px;
-    padding: 8px;
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .toolbar-section h4 {
-    margin: 0 0 12px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-secondary-color);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
 }
 
 .toolbar-item {
@@ -101,165 +82,141 @@ body {
 .toolbar-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 10px;
 }
 
-/* --- Generic UI Elements (Buttons, Inputs) --- */
-.btn {
-    padding: 10px 15px;
-    border: 1px solid transparent;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    text-align: center;
-}
-
-.btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.btn.full-width {
-    width: 100%;
-}
-
-.btn-primary {
-    background-color: var(--primary-color);
-    color: white;
-}
-.btn-primary:hover:not(:disabled) {
-    background-color: var(--primary-hover-color);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-danger {
-    background-color: var(--danger-color);
-    color: white;
-}
-
-.btn-danger:hover:not(:disabled) {
-    background-color: #c82333;
-}
-
-.toolbar-btn {
-    flex-direction: column;
-    padding: 10px 5px;
-    background-color: var(--surface-alt-color);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary-color);
-    height: 65px;
-}
-
-.toolbar-btn i {
-    font-size: 1.3em;
-    margin-bottom: 5px;
-    color: var(--primary-color);
-}
-
-.toolbar-btn:hover:not(:disabled) {
-    background-color: #e9ecef;
-    border-color: #adb5bd;
-}
-
-.toolbar-btn.active {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-
-.toolbar-btn.active i {
-    color: white;
-}
-
-.form-control {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 0.95em;
-    background-color: var(--surface-color);
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-.search-input-group {
-    display: flex;
-}
-.search-input-group .form-control {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    border-right: none;
-}
-#search-action-button {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
-/* --- Resizer --- */
-#resizer {
-    width: 5px;
-    cursor: ew-resize;
-    background-color: var(--border-color);
-    flex-shrink: 0;
-    transition: background-color 0.2s;
-}
-#resizer:hover {
-    background-color: var(--primary-color);
-}
-
-/* --- Top Navbar --- */
-#pdf-view-wrapper {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-}
-
+/* === 頂部導覽列樣式 === */
 #top-navbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 8px 16px;
-    background-color: var(--surface-color);
-    box-shadow: var(--shadow-sm);
+    justify-content: space-between;
+    padding: 0 10px;
+    height: var(--navbar-height);
+    background-color: #fff;
+    border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
-    flex-wrap: wrap;
-    gap: 12px;
-    z-index: 50;
 }
 
 .nav-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 
-.nav-btn {
-    background-color: transparent;
-    border: 1px solid transparent;
-    padding: 6px 10px;
-    border-radius: var(--border-radius);
-    color: var(--text-secondary-color);
+.page-info {
+    font-size: 0.9rem;
+    color: #555;
+    min-width: 120px;
+    text-align: center;
 }
 
-.nav-btn:hover:not(:disabled) {
-    background-color: var(--surface-alt-color);
+.zoom-level {
+    font-size: 0.9rem;
+    width: 50px;
+    text-align: center;
 }
 
-.nav-btn.active {
+
+/* === PDF 渲染區域 === */
+#pdf-view-wrapper {
+    flex-grow: 1;
+    position: relative;
+    overflow-y: auto;
+}
+
+#pdf-container {
+    position: relative;
+    padding: 24px 0;
+    display: flex;
+    justify-content: center;
+}
+
+#pdf-canvas, #drawing-canvas {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#text-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    opacity: 1;
+    line-height: 1.0;
+}
+
+.textLayer > span {
+    color: transparent;
+    position: absolute;
+    white-space: pre;
+    cursor: text;
+    transform-origin: 0% 0%;
+}
+
+/* 搜尋結果高亮樣式 */
+.wavy-underline {
+    text-decoration: underline;
+    text-decoration-color: red;
+    text-decoration-style: wavy;
+    -webkit-text-decoration-color: red;
+    -webkit-text-decoration-style: wavy;
+}
+
+#page-slider {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    z-index: 50;
+}
+
+
+/* === 表單與按鈕通用樣式 === */
+.btn, .nav-btn, .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #fff;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn:hover, .nav-btn:hover, .toolbar-btn:hover {
+    background-color: #f1f1f1;
+}
+
+.btn-primary {
     background-color: var(--primary-color);
-    color: white;
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: #fff;
+    border-color: var(--danger-color);
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
 }
 
 .page-input {
@@ -267,463 +224,100 @@ body {
     text-align: center;
 }
 
-.page-info {
-    font-weight: 500;
-    padding: 0 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 250px;
-    cursor: default;
-}
-
-.zoom-level {
-    min-width: 50px;
-    text-align: center;
-    font-weight: 500;
-}
-
-/* --- PDF Container & Canvas Layers --- */
-#pdf-container {
-    flex-grow: 1;
-    overflow: auto;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 24px;
-    position: relative;
-    background-color: var(--background-color);
-}
-
-#pdf-canvas {
-    background-color: var(--surface-color);
-    box-shadow: var(--shadow-md);
-    display: block;
-    position: relative;
-}
-
-.textLayer, #drawing-canvas {
-    position: absolute;
-    pointer-events: none;
-}
-
-.textLayer {
-    z-index: 10;
-}
-
-.textLayer.text-selection-active {
-    pointer-events: auto;
-}
-
-.textLayer ::selection {
-    background: rgba(0, 123, 255, 0.4);
-}
-
-#drawing-canvas {
-    z-index: 20;
-    background: transparent;
-}
-
-/* --- Page Slider --- */
-#page-slider {
-    position: absolute;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: clamp(300px, 50%, 800px);
-    z-index: 60;
-}
-
-/* --- Special Features Styling --- */
-.wavy-underline {
-    border-bottom: 2px wavy rgba(255, 87, 34, 0.8);
-}
-
-.paragraph-highlight {
-    position: absolute;
-    background-color: rgba(255, 235, 59, 0.3);
-    border-radius: 2px;
-    pointer-events: none;
-    z-index: 5;
-}
-
-#copy-paragraph-btn {
-    position: absolute;
-    padding: 4px 8px;
-    background-color: var(--success-color);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 0.8em;
-    z-index: 30;
-    box-shadow: var(--shadow-sm);
-}
-#copy-paragraph-btn:hover {
-    background-color: #218838;
-}
-
-#magnifier-glass {
-    position: absolute;
-    border: 3px solid var(--primary-color);
-    border-radius: 50%;
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-    pointer-events: none;
-    display: none;
-    z-index: 90;
-    background-color: var(--surface-color);
-}
-
-/* --- UI Components --- */
-#feedback-message {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(33, 37, 41, 0.9);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 30px;
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity 0.4s ease, transform 0.4s ease;
-    pointer-events: none;
-    white-space: nowrap;
-    box-shadow: var(--shadow-md);
-}
-#feedback-message[style*="opacity: 1"] {
-    transform: translateX(-50%) translateY(0);
-}
-
-.search-results-panel {
-    display: none;
-}
-.results-bar-visible .search-results-panel {
-    display: block;
-    border-top: 1px solid var(--border-color);
-    margin-top: 16px;
-    padding-top: 12px;
-    max-height: 40vh;
-    overflow-y: auto;
-}
-
-.results-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.result-item {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 12px;
-    cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
-}
-
-.result-item:hover {
-    background-color: var(--surface-alt-color);
-    border-color: #adb5bd;
-}
-
-.result-item .thumbnail-canvas {
-    width: 100%;
-    height: auto;
-    margin-bottom: 8px;
-    border-radius: 4px;
-    box-shadow: var(--shadow-sm);
-}
-
-.result-item .page-info {
-    font-size: 0.85em;
-    font-weight: 600;
-    color: var(--primary-color);
-    margin-bottom: 4px;
-}
-
-.result-item .context-snippet {
-    font-size: 0.8em;
-    color: var(--text-secondary-color);
-    line-height: 1.4;
-}
-
-/* --- Recompose PDF Modal --- */
+/* === 重新組成 PDF 面板 (Modal) 樣式 === */
 .modal-overlay {
     position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    display: none;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: none; /* 預設隱藏 */
     justify-content: center;
     align-items: center;
     z-index: 1000;
 }
 
 .modal-content {
-    background-color: var(--surface-color);
-    border-radius: 12px;
-    width: 90vw;
-    max-width: 1000px;
+    background-color: #fff;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 1200px;
     height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-md);
-    animation: fadeInScale 0.3s ease-out;
 }
 
-@keyframes fadeInScale {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-}
-
-.modal-header {
-    padding: 16px 24px;
+.modal-header, .modal-footer {
+    padding: 15px;
     border-bottom: 1px solid var(--border-color);
-}
-.modal-header h3 {
-    margin: 0;
-    font-size: 1.5rem;
-}
-
-.modal-body {
-    flex-grow: 1;
-    overflow: hidden;
-    display: flex;
-    gap: 16px;
-    padding: 24px;
-}
-
-.recompose-selection-pane,
-.recompose-toc-pane {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.recompose-selection-pane h4,
-.recompose-toc-pane h4 {
-    margin-top: 0;
-    margin-bottom: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-secondary-color);
-}
-
-#recompose-page-list {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 12px;
-    overflow-y: auto;
-    flex-grow: 1;
-}
-
-.toc-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.toc-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.btn.btn-sm {
-    padding: 4px 8px;
-    font-size: 0.8rem;
-}
-
-.toc-list {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 12px;
-    overflow-y: auto;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.toc-placeholder {
-    color: var(--text-secondary-color);
-    text-align: center;
-    margin: auto;
-}
-
-.toc-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-}
-
-.toc-item.is-chapter {
-    margin-top: 8px;
-}
-
-.toc-item .original-page-label {
-    font-size: 0.8em;
-    color: var(--text-secondary-color);
-    background-color: #e9ecef;
-    padding: 4px 6px;
-    border-radius: 4px;
-    min-width: 40px;
-    text-align: center;
-    font-weight: 500;
-}
-
-.toc-item input[type="text"] {
-    flex-grow: 1;
-    font-size: 0.9em;
-    padding: 6px 8px;
-}
-
-.toc-item.is-chapter input[type="text"] {
-    font-weight: bold;
-    color: var(--primary-color);
-}
-
-.toc-item .page-label {
-    font-size: 0.9em;
-    color: var(--text-secondary-color);
-    white-space: nowrap;
     flex-shrink: 0;
-    min-width: 80px;
-    text-align: right;
-}
-
-.toc-item .delete-item-btn {
-    background: none;
-    border: none;
-    color: var(--danger-color);
-    cursor: pointer;
-    padding: 4px;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-}
-
-.toc-item:hover .delete-item-btn {
-    opacity: 1;
 }
 
 .modal-footer {
-    padding: 16px 24px;
     border-top: 1px solid var(--border-color);
+    border-bottom: none;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 12px;
 }
 
-.modal-footer .selection-status {
-    margin-right: auto;
-}
-
-.footer-options {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-right: 20px;
-}
-
-.footer-options div {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.footer-options label {
-    font-size: 0.9em;
-    color: var(--text-secondary-color);
-    cursor: pointer;
-}
-
-.thumbnail-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 16px;
-}
-
-.recompose-thumbnail-item {
-    cursor: pointer;
-    border: 2px solid transparent;
-    border-radius: var(--border-radius);
+.modal-body {
+    padding: 15px;
+    flex-grow: 1;
     overflow: hidden;
-    transition: all 0.2s ease;
-    background-color: var(--surface-alt-color);
-    box-shadow: var(--shadow-sm);
-    position: relative;
+    display: flex;
+    gap: 15px;
 }
 
-.recompose-thumbnail-item:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+.recompose-selection-pane, .recompose-toc-pane {
+    flex: 1;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
 }
 
-.recompose-thumbnail-item.selected {
-    border-color: var(--primary-color);
+.recompose-selection-pane h4, .toc-header {
+    padding: 10px;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--light-gray);
 }
 
-.thumbnail-checkbox {
+.thumbnail-list, .toc-list {
+    overflow-y: auto;
+    padding: 10px;
+}
+
+/* === 其他工具樣式 === */
+#feedback-message {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0,0,0,0.75);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+/* 放大鏡樣式 */
+#magnifier-glass {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    pointer-events: none;
-}
-
-.recompose-thumbnail-item img {
-    width: 100%;
-    height: auto;
-    display: block;
-    background-color: #e9ecef;
-}
-
-.recompose-thumbnail-item .page-label {
-    padding: 8px;
-    font-size: 0.75rem;
-    text-align: center;
-    white-space: nowrap;
+    border: 3px solid var(--primary-color);
+    border-radius: 50%;
+    cursor: none;
+    display: none;
     overflow: hidden;
-    text-overflow: ellipsis;
+    z-index: 150;
 }
 
-/* --- SortableJS Drag & Drop Styles --- */
-.toc-item .drag-handle {
-    cursor: grab;
-    color: #adb5bd;
-    padding: 4px;
-    font-size: 1.2em;
-}
-
-.toc-item:active .drag-handle {
-    cursor: grabbing;
-}
-
-.sortable-ghost {
-    opacity: 0.4;
-    background-color: #e6f2ff;
-    border: 1px dashed var(--primary-color);
-}
-/* --- 固定左側工具列佈局 --- */
-
-/* 步驟 1: 將工具列固定在螢幕左側 */
-#toolbar {
-    position: fixed; /* 將元素固定在相對於瀏覽器視窗的位置 */
+#magnifier-canvas {
+    position: absolute;
     top: 0;
     left: 0;
-    height: 100vh; /* 高度佔滿整個視窗 */
-    width: 280px;  /* 設定工具列的寬度，您可以自行調整這個數值 */
-    overflow-y: auto; /* 如果工具列內容太長，允許工具列內部滾動 */
-    background-color: #f8f9fa; /* 建議加上背景色，避免透明 */
-}
-
-/* 步驟 2: 讓主內容區向右推移，留出工具列的空間 */
-#main-content {
-    /* 左邊距必須和工具列的寬度一樣 */
-    margin-left: 280px; /* 您可以自行調整這個數值，但需與 #toolbar 的 width 保持一致 */
 }
