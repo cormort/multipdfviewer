@@ -71,14 +71,6 @@
                             <i class="fas fa-underline"></i>
                             <span class="btn-text">搜尋標記</span>
                         </button>
-                        <button id="toggle-highlighter-btn" class="toolbar-btn" title="啟用螢光筆">
-                            <i class="fas fa-highlighter"></i>
-                            <span class="btn-text">螢光筆</span>
-                        </button>
-                        <button id="clear-highlighter-btn" class="toolbar-btn" title="清除螢光筆">
-                            <i class="fas fa-eraser"></i>
-                            <span class="btn-text">清除筆跡</span>
-                        </button>
                         <button id="toggle-text-selection-btn" class="toolbar-btn" title="啟用文字選擇">
                             <i class="fas fa-mouse-pointer"></i>
                             <span class="btn-text">文字選擇</span>
@@ -91,19 +83,6 @@
                             <i class="fas fa-copy"></i>
                             <span class="btn-text">複製本頁</span>
                         </button>
-                        <button id="toggle-local-magnifier-btn" class="toolbar-btn" title="啟用放大鏡">
-                            <i class="fas fa-search-plus"></i>
-                            <span class="btn-text">放大鏡</span>
-                        </button>
-                         <div id="local-magnifier-zoom-controls" class="toolbar-item magnifier-zoom-selector" style="display: none;">
-                            <label for="local-magnifier-zoom-selector" class="sr-only">放大倍率</label>
-                            <select id="local-magnifier-zoom-selector" class="form-control">
-                                <option value="1.5">1.5x</option>
-                                <option value="2.0" selected>2.0x</option>
-                                <option value="2.5">2.5x</option>
-                                <option value="3.0">3.0x</option>
-                            </select>
-                        </div>
                         <button id="export-page-btn" class="toolbar-btn" title="匯出當前頁面為 PNG">
                             <i class="fas fa-file-export"></i>
                             <span class="btn-text">匯出頁面</span>
@@ -159,12 +138,9 @@
             <!-- PDF 渲染區域 -->
             <div id="pdf-view-wrapper">
                 <div id="pdf-container">
-                    <canvas id="pdf-canvas"></canvas>
+                    <canvas id="pdf-canvas"></canvas> <!-- 主要的 PDF 渲染畫布 -->
                     <div id="text-layer" class="textLayer"></div>
-                    <canvas id="drawing-canvas"></canvas>
-                    <div id="magnifier-glass">
-                        <canvas id="magnifier-canvas"></canvas>
-                    </div>
+                    <!-- drawing-canvas 和 magnifier-glass 已移除 -->
                     <input type="range" id="page-slider" min="1" value="1" disabled>
                 </div>
             </div>
@@ -217,17 +193,13 @@
         </div>
     </div>
 
-    <!-- 彈出式回饋訊息 -->
     <div id="feedback-message"></div>
 
-    <!-- 
-      ▼▼▼ 腳本載入區 ▼▼▼
-    -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
-    <!-- 應用程式入口點 -->
     <script type="module" src="./js/app.js"></script>
 </body>
 </html>
+
