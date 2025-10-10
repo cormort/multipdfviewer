@@ -10,11 +10,13 @@
 </head>
 <body>
     <div id="app-container">
+        <!-- 左側工具列 -->
         <div id="toolbar">
             <div class="toolbar-header">
                 <h2>PDF 閱讀器</h2>
             </div>
             <div class="toolbar-content">
+                <!-- 檔案操作 -->
                 <div class="toolbar-section">
                     <h4>檔案</h4>
                     <div id="restore-session-container" class="toolbar-item" style="display: none;">
@@ -35,6 +37,7 @@
                     </div>
                 </div>
 
+                <!-- 搜尋與導航 -->
                 <div class="toolbar-section">
                     <h4>搜尋與導航</h4>
                     <div class="toolbar-item search-input-group">
@@ -60,6 +63,7 @@
                     </div>
                 </div>
 
+                <!-- 工具 -->
                 <div class="toolbar-section">
                     <h4>工具</h4>
                     <div class="toolbar-grid">
@@ -117,9 +121,12 @@
             </div>
         </div>
 
+        <!-- 拖曳分隔線 -->
         <div id="resizer"></div>
 
+        <!-- 右側主內容區 -->
         <div id="main-content">
+            <!-- 頂部導航與工具列 -->
             <div id="top-navbar">
                 <div class="nav-group">
                     <button id="go-to-first-page" class="nav-btn" title="第一頁"><i class="fas fa-angle-double-left"></i></button>
@@ -149,6 +156,7 @@
                 </div>
             </div>
 
+            <!-- PDF 渲染區域 -->
             <div id="pdf-view-wrapper">
                 <div id="pdf-container">
                     <canvas id="pdf-canvas"></canvas>
@@ -163,6 +171,7 @@
         </div>
     </div>
 
+    <!-- 重新組成 PDF 的面板 -->
     <div id="recompose-panel" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -208,12 +217,17 @@
         </div>
     </div>
 
+    <!-- 彈出式回饋訊息 -->
     <div id="feedback-message"></div>
 
+    <!-- 
+      ▼▼▼ 腳本載入區 ▼▼▼
+    -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
+    <!-- 應用程式入口點 -->
     <script type="module" src="./js/app.js"></script>
 </body>
 </html>
