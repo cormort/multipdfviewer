@@ -10,6 +10,10 @@
 </head>
 <body>
     <div id="app-container">
+        <div id="toolbar">
+            <div class="toolbar-header">
+                <h2>PDF 閱讀器</h2>
+            </div>
             <div class="toolbar-content">
                 <div class="toolbar-section">
                     <h4>檔案</h4>
@@ -113,38 +117,39 @@
             </div>
         </div>
 
-        <div id="main-content">
-            <div id="resizer"></div>
-            <div id="pdf-view-wrapper">
-                 <div id="top-navbar">
-                    <div class="nav-group">
-                        <button id="go-to-first-page" class="nav-btn" title="第一頁"><i class="fas fa-angle-double-left"></i></button>
-                        <button id="prev-page" class="nav-btn" title="上一頁"><i class="fas fa-angle-left"></i></button>
-                        <input type="number" id="page-to-go" value="1" min="1" class="form-control page-input">
-                        <button id="go-to-page-btn" class="nav-btn" title="跳轉頁碼"><i class="fas fa-level-up-alt"></i></button>
-                        <button id="next-page" class="nav-btn" title="下一頁"><i class="fas fa-angle-right"></i></button>
-                        <button id="go-to-last-page" class="nav-btn" title="最後一頁"><i class="fas fa-angle-double-right"></i></button>
-                    </div>
-                    <div class="nav-group page-info-group">
-                         <span id="page-num-display" class="page-info">- / -</span>
-                    </div>
-                    <div class="nav-group">
-                        <select id="resultsDropdown" class="form-control" title="搜尋結果">
-                            <option value="">搜尋結果</option>
-                        </select>
-                        <select id="fileFilterDropdown" class="form-control" title="檔案過濾">
-                            <option value="all">所有檔案</option>
-                        </select>
-                    </div>
-                    <div class="nav-group zoom-group">
-                        <button id="zoom-out-btn" class="nav-btn" title="縮小"><i class="fas fa-search-minus"></i></button>
-                        <span id="zoom-level-display" class="zoom-level">100%</span>
-                        <button id="zoom-in-btn" class="nav-btn" title="放大"><i class="fas fa-search-plus"></i></button>
-                        <button class="nav-btn fit-width-btn" title="符合頁寬"><i class="fas fa-arrows-alt-h"></i></button>
-                        <button class="nav-btn fit-height-btn" title="符合頁高"><i class="fas fa-arrows-alt-v"></i></button>
-                    </div>
-                </div>
+        <div id="resizer"></div>
 
+        <div id="main-content">
+            <div id="top-navbar">
+                <div class="nav-group">
+                    <button id="go-to-first-page" class="nav-btn" title="第一頁"><i class="fas fa-angle-double-left"></i></button>
+                    <button id="prev-page" class="nav-btn" title="上一頁"><i class="fas fa-angle-left"></i></button>
+                    <input type="number" id="page-to-go" value="1" min="1" class="form-control page-input">
+                    <button id="go-to-page-btn" class="nav-btn" title="跳轉頁碼"><i class="fas fa-level-up-alt"></i></button>
+                    <button id="next-page" class="nav-btn" title="下一頁"><i class="fas fa-angle-right"></i></button>
+                    <button id="go-to-last-page" class="nav-btn" title="最後一頁"><i class="fas fa-angle-double-right"></i></button>
+                </div>
+                <div class="nav-group page-info-group">
+                     <span id="page-num-display" class="page-info">- / -</span>
+                </div>
+                <div class="nav-group">
+                    <select id="resultsDropdown" class="form-control" title="搜尋結果">
+                        <option value="">搜尋結果</option>
+                    </select>
+                    <select id="fileFilterDropdown" class="form-control" title="檔案過濾">
+                        <option value="all">所有檔案</option>
+                    </select>
+                </div>
+                <div class="nav-group zoom-group">
+                    <button id="zoom-out-btn" class="nav-btn" title="縮小"><i class="fas fa-search-minus"></i></button>
+                    <span id="zoom-level-display" class="zoom-level">100%</span>
+                    <button id="zoom-in-btn" class="nav-btn" title="放大"><i class="fas fa-search-plus"></i></button>
+                    <button class="nav-btn fit-width-btn" title="符合頁寬"><i class="fas fa-arrows-alt-h"></i></button>
+                    <button class="nav-btn fit-height-btn" title="符合頁高"><i class="fas fa-arrows-alt-v"></i></button>
+                </div>
+            </div>
+
+            <div id="pdf-view-wrapper">
                 <div id="pdf-container">
                     <canvas id="pdf-canvas"></canvas>
                     <div id="text-layer" class="textLayer"></div>
@@ -206,9 +211,7 @@
     <div id="feedback-message"></div>
 
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-    
     <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <script type="module" src="./js/app.js"></script>
