@@ -1,8 +1,8 @@
 // in js/ui.js
 
 // 從本地模組導入
-import { dom, appState, resetAppState } from './state.js'; // <-- **關鍵的修正點：在這裡加入 resetAppState**
-import { handleFileSelect } from './app.js';
+import { dom, appState } from './state.js';
+import { handleFileSelect } from './app.js'; // <-- **關鍵的修正點 1: 直接導入 handleFileSelect**
 import { goToPage, renderPage, toggleLocalMagnifier, updateMagnifierZoomLevel, updateLocalMagnifier } from './viewer.js';
 import { searchKeyword, rerenderAllThumbnails } from './search.js';
 import { showFeedback, getPatternFromSearchInput } from './utils.js';
@@ -12,11 +12,13 @@ import { showRecomposePanel, hideRecomposePanel, triggerGeneratePdf } from './re
 /**
  * 初始化所有 DOM 元素的事件監聽器。
  */
+// **關鍵的修正點 2: 移除函數的參數**
 export function initEventHandlers() {
     // --- File and Session ---
+    // 現在 handleFileSelect 是直接從 app.js 導入的，所以這裡可以正常工作
     dom.fileInput.addEventListener('change', handleFileSelect);
     dom.clearSessionBtn.addEventListener('click', () => {
-        resetAppState(); // 現在這行可以正常運作了
+        resetAppState(); // 假設 resetAppState 在 state.js 中
         updateUIForNewState();
     });
 
