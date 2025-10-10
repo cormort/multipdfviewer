@@ -76,6 +76,7 @@ async function initializeApp() {
         window.pdfjsLib = pdfjsLib;
 
         initializeDom();
+        console.log('正在檢查 dom 物件:', dom); //debug 使用
         UI.initEventHandlers();
         Viewer.initLocalMagnifier();
         Search.initThumbnailObserver();
