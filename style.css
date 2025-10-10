@@ -709,4 +709,21 @@ body {
     background-color: #e6f2ff;
     border: 1px dashed var(--primary-color);
 }
+/* --- 固定左側工具列佈局 --- */
 
+/* 步驟 1: 將工具列固定在螢幕左側 */
+#toolbar {
+    position: fixed; /* 將元素固定在相對於瀏覽器視窗的位置 */
+    top: 0;
+    left: 0;
+    height: 100vh; /* 高度佔滿整個視窗 */
+    width: 280px;  /* 設定工具列的寬度，您可以自行調整這個數值 */
+    overflow-y: auto; /* 如果工具列內容太長，允許工具列內部滾動 */
+    background-color: #f8f9fa; /* 建議加上背景色，避免透明 */
+}
+
+/* 步驟 2: 讓主內容區向右推移，留出工具列的空間 */
+#main-content {
+    /* 左邊距必須和工具列的寬度一樣 */
+    margin-left: 280px; /* 您可以自行調整這個數值，但需與 #toolbar 的 width 保持一致 */
+}
