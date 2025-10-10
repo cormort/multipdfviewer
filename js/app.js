@@ -1,4 +1,9 @@
-// 從本地模組導入
+// in js/app.js
+
+// **變更點 1: 直接從本地端 import pdf.mjs**
+import * as pdfjsLib from '../libs/pdf.js/pdf.mjs'; 
+
+// 從本地模組導入 (其他部分不變)
 import { dom, appState, resetAppState, initializeDom } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
@@ -61,28 +66,14 @@ async function loadFilesIntoApp(loadedFileData) {
  * 應用程式的主初始化函數。
  */
 async function initializeApp() {
-    // **變更點: 使用全域的 pdfjsLib，並提供 worker 的 CDN 路徑**
-    const waitForPdfJs = () => {
-        return new Promise((resolve, reject) => {
-            let attempts = 0;
-            const interval = setInterval(() => {
-                if (typeof window.pdfjsLib !== 'undefined') {
-                    clearInterval(interval);
-                    resolve(window.pdfjsLib);
-                }
-                attempts++;
-                if (attempts > 100) { // 等待最多 10 秒
-                    clearInterval(interval);
-                    reject(new Error("pdf.js library failed to load from script tag!"));
-                }
-            }, 100);
-        });
-    };
-
+    // **變更點 2: 不再需要等待全域變數，直接設定 worker 路徑**
     try {
-        const pdfjsLib = await waitForPdfJs();
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
-        window.pdfjsLib = pdfjsLib; // 確保它在全域可用
+        // 設定 worker 路徑，指向新的 .mjs 檔案
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `../libs/pdf.js/pdf.worker.mjs`;
+
+        // 為了讓舊的 viewer.js 和 annotation.js 檔案能繼續運作，
+        // 我們手動將 import 進來的模組掛載到 window 上。
+        window.pdfjsLib = pdfjsLib;
 
         initializeDom();
         UI.initEventHandlers();
