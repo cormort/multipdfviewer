@@ -68,7 +68,7 @@ export function initializeDom() {
         closeRecomposePanelBtn: document.getElementById('close-recompose-panel'),
         recomposePageList: document.getElementById('recompose-page-list'),
         recomposeTocList: document.getElementById('recompose-toc-list'),
-        newPdfNameInput: document.getElementById('newPdfName'),
+        // newPdfNameInput: document.getElementById('newPdfName'), // **▼▼▼ 修正點：刪除或註解掉這一行 ▼▼▼**
         generateNewPdfBtn: document.getElementById('generate-new-pdf-btn'),
         selectedPagesCountSpan: document.getElementById('selected-pages-count'),
         addTocCheckbox: document.getElementById('add-toc-checkbox'),
