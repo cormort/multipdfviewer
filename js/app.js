@@ -57,6 +57,7 @@ async function initializeApp() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = './libs/pdf.js/pdf.worker.mjs';
         window.pdfjsLib = pdfjsLib;
 
+        // **修正點：嚴格確保 DOM 初始化在最前面**
         initializeDom();
         
         UI.initEventHandlers();
