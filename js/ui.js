@@ -20,13 +20,6 @@ export function initEventHandlers() {
         updateUIForNewState();
     });
 
-    // --- Toolbar Toggle for Mobile ---
-    dom.toolbarToggleTab.addEventListener('click', () => dom.appContainer.classList.toggle('menu-active'));
-    dom.mainContent.addEventListener('click', (e) => {
-        if (window.innerWidth <= 768 && dom.appContainer.classList.contains('menu-active') && !dom.toolbar.contains(e.target)) {
-            dom.appContainer.classList.remove('menu-active');
-        }
-    });
 
     // --- Search ---
     dom.searchActionButton.addEventListener('click', searchKeyword);
