@@ -57,6 +57,9 @@ export function initializeDom() {
         selectedPagesCountSpan: document.getElementById('selected-pages-count'),
         addTocCheckbox: document.getElementById('add-toc-checkbox'),
         addNewPagenumberCheckbox: document.getElementById('add-new-pagenumber-checkbox'),
+
+        // 新增 pdf-view-wrapper
+        pdfViewWrapper: document.getElementById('pdf-view-wrapper'),
     };
 }
 
