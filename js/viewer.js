@@ -1,15 +1,12 @@
 // in js/viewer.js
 
-// **變更點: 從新的 state.js 導入，不再依賴 app.js**
 import { dom, appState } from './state.js';
 import { updatePageControls } from './ui.js';
 import { getPatternFromSearchInput } from './utils.js';
 import { deactivateAllModes } from './annotation.js';
 
-// ... 這裡的程式碼與我上次提供的完整版 viewer.js 完全相同 ...
-// ... 您可以直接使用我上次給您的那份 viewer.js 的完整程式碼，只需確認頂部的 import 語句是正確的即可 ...
-
-// 為了確保萬無一失，我再次貼出完整的 viewer.js 程式碼
+// **▼▼▼ 修正點 1: 從 pdf.mjs 匯入 TextLayer 類別 ▼▼▼**
+import { TextLayer } from '../libs/pdf.js/pdf.mjs';
 
 // 模組內部狀態
 let pageRendering = false;
@@ -82,8 +79,6 @@ export function getDocAndLocalPage(globalPage) {
 }
 
 export function renderPage(globalPageNum, highlightPattern = null) {
-
-    // --- ↓↓↓ 在這裡加入 console.log ↓↓↓ ---
     console.log(`準備渲染頁面，頁碼: ${globalPageNum}`);
     
     if (appState.pdfDocs.length === 0 || !dom.pdfContainer || !dom.canvas || !dom.ctx) return;
@@ -106,8 +101,6 @@ export function renderPage(globalPageNum, highlightPattern = null) {
     const { doc, localPage } = pageInfo;
 
     doc.getPage(localPage).then(page => {
-
-        // --- ↓↓↓ 在這裡加入 console.log ↓↓↓ ---
         console.log("成功獲取到 PDF 頁面物件:", page);
 
         let scaleForCss;
@@ -166,29 +159,26 @@ export function renderPage(globalPageNum, highlightPattern = null) {
     });
 }
 
+// **▼▼▼ 修正點 2: 更新整個 renderTextLayer 函式以使用新的 TextLayer 物件 ▼▼▼**
 function renderTextLayer(page, viewport, highlightPattern) {
     return page.getTextContent().then(textContent => {
         currentPageTextContent = textContent;
-        // 清空舊的圖層，確保沒有殘留
-        dom.textLayerDivGlobal.innerHTML = '';
+        dom.textLayerDivGlobal.innerHTML = ''; // 清空舊的圖層
 
-        // **▼▼▼ 修正點 1: 使用 pdfjs-dist/build/pdf 這支 library 提供的 text layer builder ▼▼▼**
-        // 建立一個 TextLayerRenderTask 來處理渲染
-        const textLayerRenderTask = pdfjsLib.renderTextLayer({
+        // 1. 建立新的 TextLayer 實例
+        const textLayer = new TextLayer({
             textContentSource: textContent,
             container: dom.textLayerDivGlobal,
             viewport: viewport,
         });
 
-        // 等待 text layer 渲染完成
-        return textLayerRenderTask.promise.then(() => {
-            // **▼▼▼ 修正點 2: 只有在渲染完成後，才進行高亮操作 ▼▼▼**
+        // 2. 執行渲染
+        return textLayer.render().then(() => {
+            // 3. 渲染完成後，才執行高亮操作
             if (highlightPattern) {
-                // **▼▼▼ 修正點 3: 更新選擇器，直接尋找 textLayer 裡所有的 <span> ▼▼▼**
                 const textSpans = dom.textLayerDivGlobal.querySelectorAll('span');
                 
                 textSpans.forEach(span => {
-                    // 使用 textContent 替換 innerHTML，避免重複加上 span
                     const originalText = span.textContent;
                     if (originalText) {
                         const newHtml = originalText.replace(highlightPattern, (match) => `<span class="wavy-underline">${match}</span>`);
@@ -200,8 +190,11 @@ function renderTextLayer(page, viewport, highlightPattern) {
             }
         });
 
-    }).catch(reason => console.error('Error rendering text layer:', reason));
+    }).catch(reason => {
+        console.error('Error rendering text layer:', reason);
+    });
 }
+
 
 export function goToPage(globalPageNum, highlightPatternForPage = null) {
     if (appState.pdfDocs.length === 0 || isNaN(globalPageNum)) return;
@@ -238,8 +231,39 @@ export function toggleLocalMagnifier() {
 }
 
 export function updateLocalMagnifier(clientX, clientY) {
-    // ... (updateLocalMagnifier 函數的其餘部分保持不變) ...
+    if (!localMagnifierEnabled || !dom.magnifierGlass || !dom.canvas) return;
+
+    const canvasRect = dom.canvas.getBoundingClientRect();
+    const magnifierRect = dom.magnifierGlass.getBoundingClientRect();
+    
+    const x = clientX - canvasRect.left;
+    const y = clientY - canvasRect.top;
+
+    if (x < 0 || y < 0 || x > canvasRect.width || y > canvasRect.height) {
+        dom.magnifierGlass.style.display = 'none';
+        return;
+    }
+
+    dom.magnifierGlass.style.display = 'block';
+    dom.magnifierGlass.style.left = `${clientX - magnifierRect.width / 2}px`;
+    dom.magnifierGlass.style.top = `${clientY - magnifierRect.height / 2}px`;
+
+    const pixelRatio = window.devicePixelRatio || 1;
+    const ctx = dom.localMagnifierCtx;
+    ctx.clearRect(0, 0, dom.magnifierCanvas.width, dom.magnifierCanvas.height);
+    
+    const sourceX = (x * dom.canvas.width / dom.canvas.clientWidth) - (dom.magnifierCanvas.width / (2 * localMagnifierZoomLevel * pixelRatio));
+    const sourceY = (y * dom.canvas.height / dom.canvas.clientHeight) - (dom.magnifierCanvas.height / (2 * localMagnifierZoomLevel * pixelRatio));
+    
+    const sourceWidth = dom.magnifierCanvas.width / (localMagnifierZoomLevel * pixelRatio);
+    const sourceHeight = dom.magnifierCanvas.height / (localMagnifierZoomLevel * pixelRatio);
+
+    const destWidth = dom.magnifierCanvas.width;
+    const destHeight = dom.magnifierCanvas.height;
+    
+    ctx.drawImage(dom.canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, destWidth, destHeight);
 }
+
 
 export function updateMagnifierZoomLevel(level) {
     localMagnifierZoomLevel = parseFloat(level);
