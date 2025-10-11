@@ -1,3 +1,4 @@
+// state.js
 export let dom = {};
 
 export function initializeDom() {
