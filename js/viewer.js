@@ -1,5 +1,6 @@
 import { dom, appState } from './state.js';
 import { updateUIForNewState } from './ui.js';
+import { showFeedback } from './utils.js';
 
 export async function loadAndProcessFiles(files) {
     if (!files || files.length === 0) return null;
@@ -16,6 +17,8 @@ export async function loadAndProcessFiles(files) {
             data: typedarray,
             cMapUrl: "https://unpkg.com/pdfjs-dist@4.4.168/cmaps/",
             cMapPacked: true,
+            // **▼▼▼ 修正點：加入此參數以忽略 PDF 內部的非致命錯誤 ▼▼▼**
+            ignoreErrors: true, 
         });
         return loadingTask.promise.then(pdf => {
             pdf.name = data.name;
@@ -26,6 +29,7 @@ export async function loadAndProcessFiles(files) {
             };
         }).catch(err => {
             console.error(`載入 ${data.name} 失敗`, err);
+            showFeedback(`檔案 "${data.name}" 載入失敗，可能已損毀或格式不支援。`);
             return null;
         });
     });
@@ -54,3 +58,4 @@ export function goToPage(pageNum) {
     const newPageNum = Math.max(1, Math.min(pageNum, totalPages));
     displayPdf(appState.currentDocIndex, newPageNum);
 }
+
