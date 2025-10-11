@@ -1,61 +1,40 @@
-/* === 全局樣式與變數定義 === */
 :root {
-    --toolbar-width: 280px; /* 工具列寬度，可在此統一修改 */
-    --navbar-height: 48px;  /* 頂部導航列高度 */
+    --toolbar-width: 280px;
+    --navbar-height: 48px;
     --primary-color: #007bff;
-    --secondary-color: #6c757d;
-    --danger-color: #dc3545;
-    --light-gray: #f8f9fa;
     --border-color: #dee2e6;
-    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-
-* {
-    box-sizing: border-box;
-}
-
+* { box-sizing: border-box; }
 html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden; /* 防止最外層頁面滾動 */
-    font-family: var(--font-family);
-    background-color: #e9ecef;
+    height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: var(--font-family);
 }
-
-/* === 主佈局 (Flexbox) === */
 #app-container {
     display: flex;
     height: 100vh;
 }
-
 #toolbar {
     width: var(--toolbar-width);
-    flex-shrink: 0; /* 防止工具列被壓縮 */
+    flex-shrink: 0;
     height: 100%;
     overflow-y: auto;
     background-color: #f8f9fa;
     border-right: 1px solid var(--border-color);
 }
-
+.toolbar-header { padding: 10px 15px; border-bottom: 1px solid var(--border-color); }
+.toolbar-header h2 { margin: 0; font-size: 1.25rem; }
+.toolbar-content { padding: 0; }
+.toolbar-section { padding: 15px; border-bottom: 1px solid var(--border-color); }
+.toolbar-section h4 { margin-top: 0; margin-bottom: 10px; }
+.toolbar-item { margin-bottom: 10px; }
+.search-input-group { display: flex; }
 #resizer {
-    width: 5px;
-    background-color: #ccc;
-    cursor: col-resize; /* 顯示可左右拖曳的滑鼠游標 */
-    flex-shrink: 0;
+    width: 5px; background-color: #ccc; cursor: col-resize; flex-shrink: 0;
 }
-#resizer:hover {
-    background-color: var(--primary-color);
-}
-
+#resizer:hover { background-color: var(--primary-color); }
 #main-content {
-    flex-grow: 1; /* 佔滿剩餘的所有空間 */
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden; /* 防止 main-content 本身滾動 */
+    flex-grow: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden;
 }
-
 #top-navbar {
     height: var(--navbar-height);
     padding: 0 10px;
@@ -66,173 +45,18 @@ html, body {
     background-color: #fff;
     flex-shrink: 0;
 }
-
 #pdf-view-wrapper {
     flex-grow: 1;
-    overflow-y: auto; /* 只有 PDF 區域可以滾動 */
-    background-color: #e9ecef;
-}
-
-#pdf-container {
-    position: relative;
-    padding: 24px 0;
-    display: flex;
-    justify-content: center;
-}
-
-#pdf-canvas, #drawing-canvas {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-#text-layer {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
     overflow: hidden;
-    opacity: 1;
-    line-height: 1.0;
+    background-color: #525659;
 }
-
-.textLayer > span {
-    color: transparent;
-    position: absolute;
-    white-space: pre;
-    cursor: text;
-    transform-origin: 0% 0%;
-}
-
-/* 搜尋結果高亮樣式 */
-.wavy-underline {
-    text-decoration: underline;
-    text-decoration-color: red;
-    text-decoration-style: wavy;
-    -webkit-text-decoration-color: red;
-    -webkit-text-decoration-style: wavy;
-}
-
-#page-slider {
-    position: sticky;
-    bottom: 10px;
-    left: 10%;
-    width: 80%;
-    z-index: 50;
-    margin-top: -30px; /* 讓它稍微往上，避免完全貼底 */
-}
-
-/* === 左側工具列內部樣式 === */
-.toolbar-header {
-    padding: 10px 15px;
-    border-bottom: 1px solid var(--border-color);
-    background-color: #fff;
-}
-.toolbar-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-}
-.toolbar-content { padding-bottom: 20px; }
-.toolbar-section {
-    padding: 15px;
-    border-bottom: 1px solid var(--border-color);
-}
-.toolbar-section h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: #333;
-}
-.toolbar-item { margin-bottom: 10px; }
-.toolbar-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-}
-.toolbar-btn .btn-text { font-size: 0.75rem; }
-
-/* === 表單與按鈕通用樣式 === */
-.btn, .nav-btn, .toolbar-btn {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 8px;
-    font-size: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    cursor: pointer;
-    background-color: #fff;
-    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
-    color: #333;
-}
-
-.nav-btn { flex-direction: row; }
-
-.btn:hover, .nav-btn:hover, .toolbar-btn:hover {
-    background-color: #e9ecef;
-    border-color: #adb5bd;
-}
-
-.btn.active, .nav-btn.active, .toolbar-btn.active {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-
-.btn:disabled, .nav-btn:disabled, .toolbar-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: #f8f9fa;
-}
-
-.btn-primary { background-color: var(--primary-color); color: #fff; border-color: var(--primary-color); }
-.btn-primary:hover { background-color: #0056b3; }
-.btn-danger { background-color: var(--danger-color); color: #fff; border-color: var(--danger-color); }
-.btn-danger:hover { background-color: #c82333; }
-.full-width { width: 100%; }
-.form-control { width: 100%; padding: 8px 12px; font-size: 1rem; border: 1px solid var(--border-color); border-radius: 4px; }
-.page-input { width: 60px; text-align: center; }
+#pdf-embed { width: 100%; height: 100%; border: none; }
 .nav-group { display: flex; align-items: center; gap: 5px; }
-.page-info { font-size: 0.9rem; color: #555; min-width: 120px; text-align: center; }
-.zoom-level { font-size: 0.9rem; width: 50px; text-align: center; }
-
-/* === 重新組成 PDF 面板 (Modal) 樣式 === */
-.modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0,0,0,0.5); display: none; justify-content: center;
-    align-items: center; z-index: 1000;
-}
-.modal-content {
-    background-color: #fff; border-radius: 8px; width: 90%; max-width: 1200px;
-    height: 90vh; display: flex; flex-direction: column;
-}
-.modal-header, .modal-footer {
-    padding: 15px; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
-}
-.modal-footer {
-    border-top: 1px solid var(--border-color); border-bottom: none;
-    display: flex; justify-content: space-between; align-items: center;
-}
-.modal-body {
-    padding: 15px; flex-grow: 1; overflow: hidden; display: flex; gap: 15px;
-}
-.recompose-selection-pane, .recompose-toc-pane {
-    flex: 1; border: 1px solid var(--border-color); border-radius: 4px;
-    display: flex; flex-direction: column;
-}
-.recompose-selection-pane h4, .toc-header {
-    padding: 10px; margin: 0; border-bottom: 1px solid var(--border-color); background-color: var(--light-gray);
-}
-.thumbnail-list, .toc-list { overflow-y: auto; padding: 10px; }
-
-/* === 其他工具樣式 === */
-#feedback-message {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background-color: rgba(0,0,0,0.75); color: white; padding: 10px 20px;
-    border-radius: 20px; z-index: 2000; opacity: 0; transition: opacity 0.5s;
-}
-#magnifier-glass {
-    position: absolute; border: 3px solid var(--primary-color); border-radius: 50%;
-    cursor: none; display: none; overflow: hidden; z-index: 150; pointer-events: none;
-}
-#magnifier-canvas { position: absolute; top: 0; left: 0; }
+.page-input { width: 60px; text-align: center; }
+.btn, .nav-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: #fff; cursor: pointer; }
+.btn:hover, .nav-btn:hover { background-color: #f1f1f1; }
+.btn-primary { background-color: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+.btn-danger { background-color: #dc3545; color: #fff; border-color: #dc3545; }
+.form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; }
+.placeholder-text { padding: 10px; text-align: center; color: #666; }
+#feedback-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.75); color: white; padding: 10px 20px; border-radius: 20px; z-index: 2000; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
