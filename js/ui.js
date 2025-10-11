@@ -1,3 +1,4 @@
+// ui.js
 import { dom, appState } from './state.js';
 import { displayPdf, goToPage } from './viewer.js';
 import { searchKeyword } from './search.js';
