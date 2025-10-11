@@ -9,13 +9,11 @@
 </head>
 <body>
     <div id="app-container">
-        <!-- 左側工具列 -->
         <div id="toolbar">
             <div class="toolbar-header">
                 <h2>PDF 閱讀器</h2>
             </div>
             <div class="toolbar-content">
-                <!-- 檔案操作 -->
                 <div class="toolbar-section">
                     <h4>檔案</h4>
                     <div id="restore-session-container" class="toolbar-item" style="display: none;">
@@ -24,41 +22,31 @@
                     <div class="toolbar-item file-upload-area">
                         <input type="file" id="fileInput" accept=".pdf" multiple style="display: none;">
                         <label for="fileInput" class="btn btn-primary full-width">
-                            <i class="fas fa-upload"></i>
-                            <span class="btn-text">選擇 PDF 檔案</span>
+                            <i class="fas fa-upload"></i> <span class="btn-text">選擇 PDF</span>
                         </label>
                     </div>
                     <div class="toolbar-item">
                         <button id="clear-session-btn" class="btn btn-danger full-width" style="display: none;">
-                            <i class="fas fa-trash-alt"></i>
-                            <span class="btn-text">清除檔案</span>
+                            <i class="fas fa-trash-alt"></i> <span class="btn-text">清除檔案</span>
                         </button>
                     </div>
                 </div>
-                
-                <!-- 文件切換 -->
                 <div class="toolbar-section">
                     <h4>目前文件</h4>
                     <div class="toolbar-item">
-                         <select id="docSelectionDropdown" class="form-control" title="切換目前顯示的文件">
-                            <option value="">請先載入檔案</option>
-                        </select>
+                        <select id="docSelectionDropdown" class="form-control" title="切換文件"></select>
                     </div>
                 </div>
-
-                <!-- 搜尋與導航 -->
                 <div class="toolbar-section">
-                    <h4>搜尋與導航</h4>
+                    <h4>搜尋</h4>
                     <div class="toolbar-item search-input-group">
-                        <input type="text" id="searchInput" placeholder="在所有檔案中搜尋..." class="form-control">
+                        <input type="text" id="searchInput" placeholder="搜尋關鍵字..." class="form-control">
                         <button id="search-action-button" class="btn btn-icon" title="搜尋">
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
                     <div class="toolbar-item">
-                        <select id="panelResultsDropdown" class="form-control" title="搜尋結果">
-                            <option value="">搜尋結果</option>
-                        </select>
+                        <select id="panelResultsDropdown" class="form-control" title="搜尋結果"></select>
                     </div>
                     <div id="search-results-panel" class="search-results-panel">
                         <div id="results-list" class="results-list">
@@ -66,60 +54,32 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- 工具 -->
-                <div class="toolbar-section">
-                    <h4>工具</h4>
-                    <div class="toolbar-grid">
-                        <button id="recompose-pdf-btn" class="toolbar-btn" title="重新組成 PDF">
-                            <i class="fas fa-cut"></i>
-                            <span class="btn-text">重新組成PDF</span>
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
-
-        <!-- 拖曳分隔線 -->
         <div id="resizer"></div>
-
-        <!-- 右側主內容區 -->
         <div id="main-content">
-            <!-- 頂部導航與工具列 -->
             <div id="top-navbar">
                 <div class="nav-group">
                     <button id="go-to-first-page" class="nav-btn" title="第一頁"><i class="fas fa-angle-double-left"></i></button>
                     <button id="prev-page" class="nav-btn" title="上一頁"><i class="fas fa-angle-left"></i></button>
                     <input type="number" id="page-to-go" value="1" min="1" class="form-control page-input">
-                    <button id="go-to-page-btn" class="nav-btn" title="跳轉頁碼"><i class="fas fa-level-up-alt"></i></button>
+                    <button id="go-to-page-btn" class="nav-btn" title="跳轉"><i class="fas fa-level-up-alt"></i></button>
                     <button id="next-page" class="nav-btn" title="下一頁"><i class="fas fa-angle-right"></i></button>
                     <button id="go-to-last-page" class="nav-btn" title="最後一頁"><i class="fas fa-angle-double-right"></i></button>
                 </div>
                 <div class="nav-group page-info-group">
-                     <span id="page-num-display" class="page-info">- / -</span>
-                </div>
-                 <div class="nav-group">
-                    <p class="nav-notice">搜尋與縮放功能由瀏覽器內建檢視器提供</p>
+                    <span id="page-num-display" class="page-info">- / -</span>
                 </div>
             </div>
-
-            <!-- PDF 渲染區域 -->
             <div id="pdf-view-wrapper">
-                <embed id="pdf-embed" type="application/pdf" width="100%" height="100%">
+                <embed id="pdf-embed" type="application/pdf" src="about:blank">
             </div>
         </div>
     </div>
-
-    <!-- 重新組成 PDF 的面板 -->
-    <div id="recompose-panel" class="modal-overlay"><!-- ... panel content ... --></div>
-
     <div id="feedback-message"></div>
-
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    
     <script type="module" src="./js/app.js"></script>
 </body>
 </html>
-
