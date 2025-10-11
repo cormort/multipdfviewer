@@ -1,5 +1,4 @@
 import * as pdfjsLib from '../libs/pdf.js/pdf.mjs';
-
 import { dom, appState, resetAppState, initializeDom } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
