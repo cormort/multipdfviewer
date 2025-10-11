@@ -1,18 +1,13 @@
 import { dom, appState } from './state.js';
 import { displayPdf, goToPage } from './viewer.js';
 import { searchKeyword } from './search.js';
-import { showFeedback } from './utils.js';
 
 export function initEventHandlers() {
-    // 文件切換
     dom.docSelectionDropdown.addEventListener('change', (e) => {
         const docIndex = parseInt(e.target.value);
-        if (!isNaN(docIndex)) {
-            displayPdf(docIndex, 1);
-        }
+        if (!isNaN(docIndex)) displayPdf(docIndex, 1);
     });
 
-    // 搜尋
     dom.searchActionButton.addEventListener('click', () => searchKeyword(dom.searchInputElem.value));
     dom.searchInputElem.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -20,22 +15,19 @@ export function initEventHandlers() {
             searchKeyword(dom.searchInputElem.value);
         }
     });
+
     dom.panelResultsDropdown.addEventListener('change', () => {
         const [docIndex, pageNum] = dom.panelResultsDropdown.value.split('-').map(Number);
-        if (!isNaN(docIndex) && !isNaN(pageNum)) {
-            displayPdf(docIndex, pageNum);
-        }
+        if (!isNaN(docIndex) && !isNaN(pageNum)) displayPdf(docIndex, pageNum);
     });
     
-    // 頁面導航
     dom.goToFirstPageBtn.addEventListener('click', () => goToPage(1));
     dom.prevPageBtn.addEventListener('click', () => goToPage(appState.currentPage - 1));
     dom.nextPageBtn.addEventListener('click', () => goToPage(appState.currentPage + 1));
     dom.goToLastPageBtn.addEventListener('click', () => {
-        if (appState.currentDocIndex !== -1) {
-            goToPage(appState.pdfDocs[appState.currentDocIndex].numPages);
-        }
+        if (appState.currentDocIndex !== -1) goToPage(appState.pdfDocs[appState.currentDocIndex].numPages);
     });
+
     dom.goToPageBtn.addEventListener('click', () => {
         const pageNum = parseInt(dom.pageToGoInput.value);
         if (!isNaN(pageNum)) goToPage(pageNum);
@@ -53,7 +45,6 @@ export function initResizer() {
     const resizer = dom.resizer;
     const toolbar = dom.toolbar;
     if (!resizer || !toolbar) return;
-
     let isResizing = false;
     resizer.addEventListener('mousedown', () => {
         isResizing = true;
@@ -65,8 +56,8 @@ export function initResizer() {
     function handleMouseMove(e) {
         if (!isResizing) return;
         let newWidth = e.clientX;
-        if (newWidth < 200) newWidth = 200; // 最小寬度
-        if (newWidth > 600) newWidth = 600; // 最大寬度
+        if (newWidth < 200) newWidth = 200;
+        if (newWidth > 600) newWidth = 600;
         toolbar.style.width = `${newWidth}px`;
     }
     function stopResizing() {
@@ -78,9 +69,7 @@ export function initResizer() {
     }
 }
 
-export function showLoading(isLoading) {
-    document.body.style.cursor = isLoading ? 'wait' : 'default';
-}
+export function showLoading(isLoading) { document.body.style.cursor = isLoading ? 'wait' : 'default'; }
 
 export function populateDocSelection() {
     dom.docSelectionDropdown.innerHTML = '';
@@ -103,31 +92,20 @@ export function updateSearchResults() {
         dom.resultsList.innerHTML = '<p class="placeholder-text">無搜尋結果</p>';
         return;
     }
-
     appState.searchResults.forEach(result => {
         const option = document.createElement('option');
         option.value = `${result.docIndex}-${result.pageNum}`;
         option.textContent = `P.${result.pageNum} (${result.docName})`;
         dom.panelResultsDropdown.appendChild(option);
     });
-
-    // 您可以在這裡擴充，將詳細的搜尋結果呈現在 dom.resultsList 中
     dom.resultsList.innerHTML = ''; 
 }
-
 
 export function updateUIForNewState() {
     const hasDocs = appState.pdfDocs.length > 0;
     const isDocSelected = appState.currentDocIndex !== -1;
-
     dom.clearSessionBtn.style.display = hasDocs ? 'block' : 'none';
-
-    const controls = [
-        dom.docSelectionDropdown, dom.searchInputElem, dom.searchActionButton,
-        dom.panelResultsDropdown, dom.goToFirstPageBtn, dom.prevPageBtn,
-        dom.nextPageBtn, dom.goToLastPageBtn, dom.pageToGoInput, dom.goToPageBtn,
-        // dom.recomposePdfBtn // 如果您有 recomposePdfBtn，可以取消註解
-    ];
+    const controls = [dom.docSelectionDropdown, dom.searchInputElem, dom.searchActionButton, dom.panelResultsDropdown, dom.goToFirstPageBtn, dom.prevPageBtn, dom.nextPageBtn, dom.goToLastPageBtn, dom.pageToGoInput, dom.goToPageBtn];
     controls.forEach(el => { if (el) el.disabled = !hasDocs; });
 
     if (isDocSelected) {
@@ -136,7 +114,6 @@ export function updateUIForNewState() {
         dom.pageNumDisplay.textContent = `第 ${appState.currentPage} 頁 / 共 ${totalPages} 頁`;
         dom.pageToGoInput.value = appState.currentPage;
         dom.pageToGoInput.max = totalPages;
-        
         dom.goToFirstPageBtn.disabled = appState.currentPage === 1;
         dom.prevPageBtn.disabled = appState.currentPage === 1;
         dom.nextPageBtn.disabled = appState.currentPage === totalPages;
