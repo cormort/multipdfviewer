@@ -1,138 +1,91 @@
 import { dom, appState } from './state.js';
-import { updatePageControls } from './ui.js';
-import { getPatternFromSearchInput } from './utils.js';
-import { deactivateAllModes } from './annotation.js';
-import { TextLayer } from '../libs/pdf.js/pdf.mjs';
+import { updateUIForNewState } from './ui.js';
 
-let pageRendering = false;
-let currentPageTextContent = null;
-let currentViewport = null;
+/**
+ * 載入並處理用戶選擇的檔案。
+ * @param {File[]} files - 從 input 元素獲取的文件列表。
+ * @returns {Promise<Object|null>} 一個包含 pdfDocs 和 pdfBlobs 的物件，或在失敗時返回 null。
+ */
+export async function loadAndProcessFiles(files) {
+    if (!files || files.length === 0) return null;
 
-export async function loadAndProcessFiles(loadedFileData) {
-    if (!loadedFileData || !Array.isArray(loadedFileData)) return null;
-    deactivateAllModes();
+    // 將 File 物件讀取為 ArrayBuffer
+    const readFileAsBuffer = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ buffer: reader.result, name: file.name });
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+    });
+
+    const fileData = await Promise.all(Array.from(files).map(readFileAsBuffer));
     
-    const loadingPromises = loadedFileData.map(item => {
-        const typedarray = new Uint8Array(item.buffer);
-        // **修正點：加入 cMapUrl 和 cMapPacked 參數來解決亞洲字體警告**
+    // 使用 pdf.js 平行處理所有檔案
+    const loadingPromises = fileData.map(data => {
+        const typedarray = new Uint8Array(data.buffer);
         const loadingTask = pdfjsLib.getDocument({
             data: typedarray,
+            // 提供 cMap 資源路徑以正確顯示亞洲語言字體
             cMapUrl: "https://unpkg.com/pdfjs-dist@4.4.168/cmaps/",
             cMapPacked: true,
         });
         return loadingTask.promise.then(pdf => {
-            return { pdf, name: item.name, buffer: item.buffer };
-        }).catch(reason => {
-            console.error(`載入檔案 ${item.name} 時發生錯誤:`, reason);
+            pdf.name = data.name; // 為 pdf 物件附加名稱，以便在 UI 中顯示
+            const blob = new Blob([data.buffer], { type: 'application/pdf' });
+            return { 
+                pdf, // 用於獲取元數據 (如頁數) 和搜尋
+                blobUrl: URL.createObjectURL(blob) // 用於在 <embed> 中顯示
+            };
+        }).catch(err => {
+            console.error(`載入 ${data.name} 失敗`, err);
             return null;
         });
     });
 
-    const results = await Promise.all(loadingPromises);
-    const loadedPdfs = results.filter(r => r !== null);
+    const results = (await Promise.all(loadingPromises)).filter(r => r !== null);
+    if (results.length === 0) return null;
+
+    // 將處理好的結果分類儲存
+    return {
+        pdfDocs: results.map(r => r.pdf),
+        pdfBlobs: results.map(r => ({ url: r.blobUrl, name: r.pdf.name }))
+    };
+}
+
+/**
+ * 在 <embed> 元素中顯示指定的 PDF 文件和頁碼。
+ * @param {number} docIndex - 要顯示的文件在 appState 中的索引。
+ * @param {number} [pageNum=1] - 要跳轉到的頁碼。
+ */
+export function displayPdf(docIndex, pageNum = 1) {
+    if (docIndex < 0 || docIndex >= appState.pdfBlobs.length) return;
     
-    if (loadedPdfs.length === 0) return null;
-
-    const newPdfDocs = [], newPageMap = [], newPdfArrayBuffers = []; 
-    loadedPdfs.forEach((result, docIndex) => {
-        newPdfDocs.push(result.pdf);
-        for (let i = 1; i <= result.pdf.numPages; i++) {
-            newPageMap.push({ docIndex, localPage: i, docName: result.name });
-        }
-        newPdfArrayBuffers.push(result.buffer);
-    });
-
-    return { pdfDocs: newPdfDocs, pageMap: newPageMap, globalTotalPages: newPageMap.length, pdfArrayBuffers: newPdfArrayBuffers };
-}
-
-export function getDocAndLocalPage(globalPage) {
-    if (globalPage < 1 || globalPage > appState.globalTotalPages) return null;
-    return appState.pageMap[globalPage - 1];
-}
-
-export function renderPage(globalPageNum) {
-    const highlightPattern = getPatternFromSearchInput(dom.searchInputElem);
-    if (appState.pdfDocs.length === 0 || pageRendering) return;
-
-    pageRendering = true;
-    updatePageControls();
-
-    const pageMapping = getDocAndLocalPage(globalPageNum);
-    if (!pageMapping) {
-        pageRendering = false;
-        console.warn(`找不到頁面映射: ${globalPageNum}`);
-        return;
-    }
-
-    const { docIndex, localPage } = pageMapping;
-    const doc = appState.pdfDocs[docIndex];
-
-    doc.getPage(localPage).then(page => {
-        if (appState.currentZoomMode === 'width' && dom.pdfViewWrapper) {
-            appState.currentScale = (dom.pdfViewWrapper.clientWidth - 48) / page.getViewport({ scale: 1 }).width;
-        } else if (appState.currentZoomMode === 'height' && dom.pdfViewWrapper) {
-            appState.currentScale = (dom.pdfViewWrapper.clientHeight - 48) / page.getViewport({ scale: 1 }).height;
-        }
-
-        const viewport = page.getViewport({ scale: appState.currentScale });
-        currentViewport = viewport;
-
-        // **修正點：在設定寬高前，確保 dom.canvas 存在**
-        if (!dom.canvas || !dom.ctx || !dom.textLayerDivGlobal) {
-            console.error("Canvas 或 TextLayer 元素未找到！");
-            pageRendering = false;
-            return;
-        }
-
-        dom.canvas.width = viewport.width;
-        dom.canvas.height = viewport.height;
-        dom.textLayerDivGlobal.style.width = `${viewport.width}px`;
-        dom.textLayerDivGlobal.style.height = `${viewport.height}px`;
-
-        const renderContext = { canvasContext: dom.ctx, viewport };
-        
-        page.render(renderContext).promise.then(() => {
-            return renderTextLayer(page, viewport, highlightPattern);
-        }).catch(err => {
-            console.error('頁面渲染失敗:', err);
-        }).finally(() => {
-            pageRendering = false;
-            updatePageControls();
-        });
-    }).catch(reason => {
-        console.error(`取得頁面時發生錯誤:`, reason);
-        pageRendering = false;
-    });
-}
-
-function renderTextLayer(page, viewport, highlightPattern) {
-    return page.getTextContent().then(textContent => {
-        currentPageTextContent = textContent;
-        if (dom.textLayerDivGlobal) {
-            dom.textLayerDivGlobal.innerHTML = '';
-            const textLayer = new TextLayer({ textContentSource: textContent, container: dom.textLayerDivGlobal, viewport });
-            return textLayer.render().then(() => {
-                if (highlightPattern && appState.showSearchResultsHighlights) {
-                    const textSpans = dom.textLayerDivGlobal.querySelectorAll('span');
-                    textSpans.forEach(span => {
-                        const originalText = span.textContent;
-                        if (originalText) {
-                            const newHtml = originalText.replace(highlightPattern, (match) => `<span class="wavy-underline">${match}</span>`);
-                            if (newHtml !== originalText) span.innerHTML = newHtml;
-                        }
-                    });
-                }
-            });
-        }
-    }).catch(reason => console.error('渲染文字圖層時發生錯誤:', reason));
-}
-
-export function goToPage(globalPageNum) {
-    const n = Math.max(1, Math.min(globalPageNum, appState.globalTotalPages));
-    if (isNaN(n)) return;
+    appState.currentDocIndex = docIndex;
+    appState.currentPage = pageNum;
     
-    appState.currentPage = n;
-    renderPage(appState.currentPage);
+    const blobInfo = appState.pdfBlobs[docIndex];
+    
+    // 設定 embed 的 src，並加上頁碼和「符合頁寬」的參數
+    // #page=[頁碼]&view=FitW 是 Adobe PDF Open Parameters 標準
+    dom.pdfEmbed.src = `${blobInfo.url}#page=${pageNum}&view=FitW`;
+    
+    // 更新 UI 上的文件選擇下拉選單和頁碼顯示
+    dom.docSelectionDropdown.value = docIndex;
+    updateUIForNewState();
 }
 
-export { currentPageTextContent, currentViewport };
+/**
+ * 跳轉到目前顯示文件的指定頁碼。
+ * @param {number} pageNum - 目標頁碼。
+ */
+export function goToPage(pageNum) {
+    if (appState.currentDocIndex === -1) return;
+    const currentDoc = appState.pdfDocs[appState.currentDocIndex];
+    const totalPages = currentDoc.numPages;
+
+    // 確保頁碼在有效範圍內
+    const newPageNum = Math.max(1, Math.min(pageNum, totalPages));
+
+    // 呼叫 displayPdf 來更新畫面
+    displayPdf(appState.currentDocIndex, newPageNum);
+}
+
