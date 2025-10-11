@@ -31,8 +31,8 @@ export function initializeDom() {
         searchResultsPanel: document.getElementById('search-results-panel'),
         resultsList: document.getElementById('results-list'),
 
-        // 工具
-        recomposePdfBtn: document.getElementById('recompose-pdf-btn'),
+        // 工具 (您可以視情況取消註解 recomposePdfBtn)
+        // recomposePdfBtn: document.getElementById('recompose-pdf-btn'),
     };
 }
 
@@ -48,7 +48,7 @@ export let appState = {
 
 export function resetAppState() {
     // 清除舊的 Object URL 以釋放記憶體
-    appState.pdfBlobs.forEach(blob => URL.revokeObjectURL(blob.url));
+    appState.pdfBlobs.forEach(blobInfo => URL.revokeObjectURL(blobInfo.url));
 
     appState = {
         pdfDocs: [],
@@ -59,3 +59,4 @@ export function resetAppState() {
     };
     if (dom.searchInputElem) dom.searchInputElem.value = '';
 }
+
