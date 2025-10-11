@@ -4,7 +4,6 @@ import { dom, appState, resetAppState, initializeDom } from './state.js';
 import { initDB, saveFiles, getFiles } from './db.js';
 import * as UI from './ui.js';
 import * as Viewer from './viewer.js';
-import * as Search from './search.js';
 import { showFeedback } from './utils.js';
 
 async function handleFileSelect(e) {
@@ -50,10 +49,10 @@ async function initializeApp() {
         dom.fileInput.addEventListener('change', handleFileSelect);
         dom.clearSessionBtn.addEventListener('click', () => {
             resetAppState();
-            dom.pdfEmbed.src = "about:blank";
+            if(dom.pdfEmbed) dom.pdfEmbed.src = "about:blank";
             UI.updateUIForNewState();
             UI.populateDocSelection();
-            UI.updateSearchResults(); // 清空搜尋結果
+            UI.updateSearchResults(); 
         });
 
         UI.updateUIForNewState();
@@ -80,4 +79,3 @@ async function initializeApp() {
 }
 
 document.addEventListener('DOMContentLoaded', initializeApp);
-
