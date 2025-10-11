@@ -1,5 +1,6 @@
 import { dom, appState } from './state.js';
 import { updateUIForNewState } from './ui.js';
+import { showFeedback } from './utils.js'; // **修正點 1: 導入 showFeedback 函式**
 
 export async function loadAndProcessFiles(files) {
     if (!files || files.length === 0) return null;
@@ -26,6 +27,8 @@ export async function loadAndProcessFiles(files) {
             };
         }).catch(err => {
             console.error(`載入 ${data.name} 失敗`, err);
+            // **修正點 2: 在 UI 上顯示友善的錯誤訊息**
+            showFeedback(`檔案 "${data.name}" 載入失敗，可能已損毀或格式不支援。`);
             return null;
         });
     });
