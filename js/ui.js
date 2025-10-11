@@ -126,7 +126,7 @@ export function updateUIForNewState() {
         dom.docSelectionDropdown, dom.searchInputElem, dom.searchActionButton,
         dom.panelResultsDropdown, dom.goToFirstPageBtn, dom.prevPageBtn,
         dom.nextPageBtn, dom.goToLastPageBtn, dom.pageToGoInput, dom.goToPageBtn,
-        dom.recomposePdfBtn
+        // dom.recomposePdfBtn // 如果您有 recomposePdfBtn，可以取消註解
     ];
     controls.forEach(el => { if (el) el.disabled = !hasDocs; });
 
