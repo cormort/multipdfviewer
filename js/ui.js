@@ -54,7 +54,6 @@ export function initResizer() {
         document.addEventListener('mouseup', stopResizing);
     });
     function handleMouseMove(e) {
-        if (!isResizing) return;
         let newWidth = e.clientX;
         if (newWidth < 200) newWidth = 200;
         if (newWidth > 600) newWidth = 600;
