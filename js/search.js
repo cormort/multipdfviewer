@@ -1,11 +1,7 @@
 import { dom, appState } from './state.js';
-import { displayPdf } from './viewer.js'; // **修正點 1: 導入新的 displayPdf 函式**
+import { displayPdf } from './viewer.js';
 import { updateSearchResults, showLoading } from './ui.js';
 
-/**
- * 根據輸入框中的關鍵字或正則表達式，在所有已載入的 PDF 文件中進行搜尋。
- * @param {string} query - 來自搜尋輸入框的文字。
- */
 export async function searchKeyword(query) {
     if (!query || appState.pdfDocs.length === 0) {
         appState.searchResults = [];
@@ -22,9 +18,7 @@ export async function searchKeyword(query) {
         } else {
             const escapedInput = query.replace(/[/\\^$*+?.()|[\]{}]/g, '\\$&');
             const keywords = escapedInput.split(/\s+/).filter(k => k.length > 0);
-            if (keywords.length > 0) {
-                pattern = new RegExp(keywords.join('.*?'), 'gi');
-            }
+            if (keywords.length > 0) pattern = new RegExp(keywords.join('.*?'), 'gi');
         }
     } catch (e) {
         console.warn('無法建立正則表達式:', e);
@@ -45,7 +39,7 @@ export async function searchKeyword(query) {
                     .then(page => page.getTextContent())
                     .then(textContent => {
                         const pageText = textContent.items.map(item => item.str).join('');
-                        pattern.lastIndex = 0; // 重置正則表達式的 lastIndex
+                        pattern.lastIndex = 0;
                         if (pattern.test(pageText)) {
                             return {
                                 docIndex,
@@ -66,10 +60,8 @@ export async function searchKeyword(query) {
     
     updateSearchResults();
 
-    // 如果有結果，自動跳轉到第一個結果
     if (appState.searchResults.length > 0) {
         const firstResult = appState.searchResults[0];
-        // **修正點 2: 呼叫 displayPdf 而不是舊的 goToPage**
         displayPdf(firstResult.docIndex, firstResult.pageNum);
     }
 
