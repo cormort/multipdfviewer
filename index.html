@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF 文件瀏覽器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/pdfjs-dist@4.4.168/web/pdf_viewer.css" />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -36,12 +35,22 @@
                         </button>
                     </div>
                 </div>
+                
+                <!-- 文件切換 -->
+                <div class="toolbar-section">
+                    <h4>目前文件</h4>
+                    <div class="toolbar-item">
+                         <select id="docSelectionDropdown" class="form-control" title="切換目前顯示的文件">
+                            <option value="">請先載入檔案</option>
+                        </select>
+                    </div>
+                </div>
 
                 <!-- 搜尋與導航 -->
                 <div class="toolbar-section">
                     <h4>搜尋與導航</h4>
                     <div class="toolbar-item search-input-group">
-                        <input type="text" id="searchInput" placeholder="搜尋關鍵字或正則表達式" class="form-control">
+                        <input type="text" id="searchInput" placeholder="在所有檔案中搜尋..." class="form-control">
                         <button id="search-action-button" class="btn btn-icon" title="搜尋">
                             <i class="fas fa-search"></i>
                         </button>
@@ -51,14 +60,9 @@
                             <option value="">搜尋結果</option>
                         </select>
                     </div>
-                     <div class="toolbar-item">
-                        <select id="panelFileFilterDropdown" class="form-control" title="檔案過濾">
-                            <option value="all">所有檔案</option>
-                        </select>
-                    </div>
                     <div id="search-results-panel" class="search-results-panel">
                         <div id="results-list" class="results-list">
-                            <p style="padding: 10px; text-align: center; color: #666;">無搜尋結果</p>
+                            <p class="placeholder-text">無搜尋結果</p>
                         </div>
                     </div>
                 </div>
@@ -67,30 +71,6 @@
                 <div class="toolbar-section">
                     <h4>工具</h4>
                     <div class="toolbar-grid">
-                        <button id="toggle-underline-btn" class="toolbar-btn" title="切換搜尋結果標記">
-                            <i class="fas fa-underline"></i>
-                            <span class="btn-text">搜尋標記</span>
-                        </button>
-                        <button id="toggle-text-selection-btn" class="toolbar-btn" title="啟用文字選擇">
-                            <i class="fas fa-mouse-pointer"></i>
-                            <span class="btn-text">文字選擇</span>
-                        </button>
-                        <button id="toggle-paragraph-selection-btn" class="toolbar-btn" title="啟用段落選擇 (需文字選擇模式)">
-                            <i class="fas fa-paragraph"></i>
-                            <span class="btn-text">段落選擇</span>
-                        </button>
-                        <button id="copy-page-text-btn" class="toolbar-btn" title="複製本頁所有文字">
-                            <i class="fas fa-copy"></i>
-                            <span class="btn-text">複製本頁</span>
-                        </button>
-                        <button id="export-page-btn" class="toolbar-btn" title="匯出當前頁面為 PNG">
-                            <i class="fas fa-file-export"></i>
-                            <span class="btn-text">匯出頁面</span>
-                        </button>
-                        <button id="share-page-btn" class="toolbar-btn" title="分享當前頁面">
-                            <i class="fas fa-share-alt"></i>
-                            <span class="btn-text">分享頁面</span>
-                        </button>
                         <button id="recompose-pdf-btn" class="toolbar-btn" title="重新組成 PDF">
                             <i class="fas fa-cut"></i>
                             <span class="btn-text">重新組成PDF</span>
@@ -118,80 +98,20 @@
                 <div class="nav-group page-info-group">
                      <span id="page-num-display" class="page-info">- / -</span>
                 </div>
-                <div class="nav-group">
-                    <select id="resultsDropdown" class="form-control" title="搜尋結果">
-                        <option value="">搜尋結果</option>
-                    </select>
-                    <select id="fileFilterDropdown" class="form-control" title="檔案過濾">
-                        <option value="all">所有檔案</option>
-                    </select>
-                </div>
-                <div class="nav-group zoom-group">
-                    <button id="zoom-out-btn" class="nav-btn" title="縮小"><i class="fas fa-search-minus"></i></button>
-                    <span id="zoom-level-display" class="zoom-level">100%</span>
-                    <button id="zoom-in-btn" class="nav-btn" title="放大"><i class="fas fa-search-plus"></i></button>
-                    <button class="nav-btn fit-width-btn" title="符合頁寬"><i class="fas fa-arrows-alt-h"></i></button>
-                    <button class="nav-btn fit-height-btn" title="符合頁高"><i class="fas fa-arrows-alt-v"></i></button>
+                 <div class="nav-group">
+                    <p class="nav-notice">搜尋與縮放功能由瀏覽器內建檢視器提供</p>
                 </div>
             </div>
 
             <!-- PDF 渲染區域 -->
             <div id="pdf-view-wrapper">
-                <div id="pdf-container">
-                    <canvas id="pdf-canvas"></canvas> <!-- 主要的 PDF 渲染畫布 -->
-                    <div id="text-layer" class="textLayer"></div>
-                    <!-- drawing-canvas 和 magnifier-glass 已移除 -->
-                    <input type="range" id="page-slider" min="1" value="1" disabled>
-                </div>
+                <embed id="pdf-embed" type="application/pdf" width="100%" height="100%">
             </div>
         </div>
     </div>
 
     <!-- 重新組成 PDF 的面板 -->
-    <div id="recompose-panel" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>重新組成 PDF</h3>
-            </div>
-            <div class="modal-body">
-                <div class="recompose-selection-pane">
-                    <h4>1. 點擊選擇頁面 (支援 Shift 多選)</h4>
-                    <div id="recompose-page-list" class="thumbnail-list">
-                        <p>請先載入 PDF 檔案。</p>
-                    </div>
-                </div>
-                <div class="recompose-toc-pane">
-                    <div class="toc-header">
-                        <h4>2. 拖曳排序目次 (可選)</h4>
-                        <div class="toc-actions">
-                            <button id="add-chapter-btn" class="btn btn-sm" title="新增章節標題"><i class="fas fa-plus"></i> 新增章節</button>
-                            <button id="export-toc-btn" class="btn btn-sm" title="將目前目次匯出為文字檔"><i class="fas fa-file-export"></i> 匯出</button>
-                            <label for="import-toc-input" class="btn btn-sm" title="從文字檔匯入目次"><i class="fas fa-file-import"></i> 匯入</label>
-                            <input type="file" id="import-toc-input" accept=".txt" style="display: none;">
-                        </div>
-                    </div>
-                    <div id="recompose-toc-list" class="toc-list">
-                        <p class="toc-placeholder">選擇頁面或新增章節...</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <p class="selection-status">已選擇 <span id="selected-pages-count">0</span> 頁</p>
-                <div class="footer-options">
-                    <div>
-                        <input type="checkbox" id="add-toc-checkbox" checked>
-                        <label for="add-toc-checkbox">產生目次</label>
-                    </div>
-                    <div>
-                        <input type="checkbox" id="add-new-pagenumber-checkbox" checked>
-                        <label for="add-new-pagenumber-checkbox">添加新頁碼</label>
-                    </div>
-                </div>
-                <button id="close-recompose-panel" class="btn btn-secondary">關閉</button>
-                <button id="generate-new-pdf-btn" class="btn btn-primary">生成 PDF 檔案</button>
-            </div>
-        </div>
-    </div>
+    <div id="recompose-panel" class="modal-overlay"><!-- ... panel content ... --></div>
 
     <div id="feedback-message"></div>
 
