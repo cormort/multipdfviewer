@@ -31,8 +31,7 @@ export function initializeDom() {
         searchResultsPanel: document.getElementById('search-results-panel'),
         resultsList: document.getElementById('results-list'),
 
-        // 工具 (您可以視情況取消註解 recomposePdfBtn)
-        // recomposePdfBtn: document.getElementById('recompose-pdf-btn'),
+        // 工具 (recomposePdfBtn 已被移除，因為在新架構下功能不相容)
     };
 }
 
@@ -59,4 +58,3 @@ export function resetAppState() {
     };
     if (dom.searchInputElem) dom.searchInputElem.value = '';
 }
-
