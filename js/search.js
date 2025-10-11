@@ -1,3 +1,4 @@
+// search.js
 import { dom, appState } from './state.js';
 import { displayPdf } from './viewer.js';
 import { updateSearchResults, showLoading } from './ui.js';
