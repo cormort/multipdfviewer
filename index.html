@@ -1,85 +1,63 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF 文件瀏覽器</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <title>多檔案 PDF 網頁瀏覽器</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 移除了原本的 pdf.js CDN 引用 -->
 </head>
 <body>
-    <div id="app-container">
-        <div id="toolbar">
-            <div class="toolbar-header">
-                <h2>PDF 閱讀器</h2>
+    <div class="app-container">
+        <!-- 左側工具列 -->
+        <aside class="toolbar" id="toolbar">
+            <div class="toolbar-section">
+                <h3>檔案操作</h3>
+                <input type="file" id="file-input" multiple accept=".pdf" style="display: none;">
+                <button id="select-files-btn" class="btn">選擇 PDF</button>
+                <button id="clear-files-btn" class="btn">清除所有檔案</button>
+                <button id="restore-session-btn" class="btn hidden">恢復上次工作階段</button>
             </div>
-            <div class="toolbar-content">
-                <div class="toolbar-section">
-                    <h4>檔案</h4>
-                    <div id="restore-session-container" class="toolbar-item" style="display: none;">
-                        <button id="restore-session-btn" class="btn btn-secondary full-width">恢復上次工作階段</button>
-                    </div>
-                    <div class="toolbar-item file-upload-area">
-                        <input type="file" id="fileInput" accept=".pdf" multiple style="display: none;">
-                        <label for="fileInput" class="btn btn-primary full-width">
-                            <i class="fas fa-upload"></i> <span class="btn-text">選擇 PDF</span>
-                        </label>
-                    </div>
-                    <div class="toolbar-item">
-                        <button id="clear-session-btn" class="btn btn-danger full-width" style="display: none;">
-                            <i class="fas fa-trash-alt"></i> <span class="btn-text">清除檔案</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="toolbar-section">
-                    <h4>目前文件</h4>
-                    <div class="toolbar-item">
-                        <select id="docSelectionDropdown" class="form-control" title="切換文件"></select>
-                    </div>
-                </div>
-                <div class="toolbar-section">
-                    <h4>搜尋</h4>
-                    <div class="toolbar-item search-input-group">
-                        <input type="text" id="searchInput" placeholder="搜尋關鍵字..." class="form-control">
-                        <button id="search-action-button" class="btn btn-icon" title="搜尋">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                    <div class="toolbar-item">
-                        <select id="panelResultsDropdown" class="form-control" title="搜尋結果"></select>
-                    </div>
-                    <div id="search-results-panel" class="search-results-panel">
-                        <div id="results-list" class="results-list">
-                            <p class="placeholder-text">無搜尋結果</p>
-                        </div>
-                    </div>
-                </div>
+
+            <div class="toolbar-section">
+                <h3>文件切換</h3>
+                <select id="doc-selector" disabled></select>
             </div>
-        </div>
-        <div id="resizer"></div>
-        <div id="main-content">
-            <div id="top-navbar">
-                <div class="nav-group">
-                    <button id="go-to-first-page" class="nav-btn" title="第一頁"><i class="fas fa-angle-double-left"></i></button>
-                    <button id="prev-page" class="nav-btn" title="上一頁"><i class="fas fa-angle-left"></i></button>
-                    <input type="number" id="page-to-go" value="1" min="1" class="form-control page-input">
-                    <button id="go-to-page-btn" class="nav-btn" title="跳轉"><i class="fas fa-level-up-alt"></i></button>
-                    <button id="next-page" class="nav-btn" title="下一頁"><i class="fas fa-angle-right"></i></button>
-                    <button id="go-to-last-page" class="nav-btn" title="最後一頁"><i class="fas fa-angle-double-right"></i></button>
-                </div>
-                <div class="nav-group page-info-group">
-                    <span id="page-num-display" class="page-info">- / -</span>
-                </div>
+
+            <div class="toolbar-section">
+                <h3>跨文件搜尋</h3>
+                <input type="search" id="search-input" placeholder="輸入關鍵字..." disabled>
+                <div id="search-results"></div>
             </div>
-            <div id="pdf-view-wrapper">
-                <embed id="pdf-embed" type="application/pdf" src="about:blank">
+            
+            <div id="loading-indicator" class="loading hidden">
+                <div class="spinner"></div>
+                <span id="loading-text">處理中...</span>
             </div>
-        </div>
+        </aside>
+
+        <!-- 可拖曳分隔線 -->
+        <div class="resizer" id="resizer"></div>
+
+        <!-- 右側內容區 -->
+        <main class="main-content" id="main-content">
+            <nav class="navigation-bar" id="nav-bar">
+                <button id="first-page-btn">«</button>
+                <button id="prev-page-btn">‹</button>
+                <input type="number" id="page-num-input" min="1">
+                <span id="page-info">第 - 頁 / 共 - 頁</span>
+                <button id="next-page-btn">›</button>
+                <button id="last-page-btn">»</button>
+            </nav>
+            <div class="pdf-viewer" id="pdf-viewer">
+                <p class="placeholder-text">請從左側選擇 PDF 檔案以開始</p>
+                <!-- PDF 將會被嵌入到這裡 -->
+            </div>
+        </main>
     </div>
-    <div id="feedback-message"></div>
-    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-    <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script type="module" src="./js/app.js"></script>
+
+    <script src="ui.js" type="module"></script>
+    <script src="db.js" type="module"></script>
+    <script src="main.js" type="module"></script>
 </body>
 </html>
