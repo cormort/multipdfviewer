@@ -45,7 +45,9 @@ async function handleFileSelect(event) {
 
     // 重置 worker
     if (pdfWorker) pdfWorker.terminate();
-    pdfWorker = new Worker('worker.js', { type: 'module' }); // 指定 worker 類型為 module
+    // ***** 核心修正點 *****
+    // 告訴瀏覽器我們的 worker 是一個 ES Module
+    pdfWorker = new Worker('worker.js', { type: 'module' }); 
     
     let processedCount = 0;
     const totalFiles = selectedFiles.length;
@@ -62,8 +64,10 @@ async function handleFileSelect(event) {
             };
             state.files.push(newFile);
         } else {
-            UI.showFileLoadError(e.data.fileName);
-            console.error(`Failed to process ${e.data.fileName}:`, e.data.error);
+            // 確保即使 worker 傳回的資料有問題，也不會顯示 "undefined"
+            const fileName = e.data.fileName || '未知檔案';
+            UI.showFileLoadError(fileName);
+            console.error(`Failed to process ${fileName}:`, e.data.error);
         }
 
         if (processedCount === totalFiles) {
@@ -94,10 +98,10 @@ function onAllFilesProcessed() {
 
 function handleClearAll() {
     // 釋放所有 Blob URL
-    state.files.forEach(file => {
-        const embed = document.querySelector(`#pdf-embed[src^="blob:"]`);
-        if (embed) URL.revokeObjectURL(embed.dataset.blobUrl);
-    });
+    const oldEmbed = dom.pdfViewer.querySelector('#pdf-embed');
+    if (oldEmbed && oldEmbed.dataset.blobUrl) {
+        URL.revokeObjectURL(oldEmbed.dataset.blobUrl);
+    }
 
     state = { files: [], currentFile: null };
     UI.clearAll();
@@ -172,6 +176,7 @@ function handleSearch(event) {
     
     const results = [];
     state.files.forEach(file => {
+        if (!file.textContentByPage) return;
         for (const pageNum in file.textContentByPage) {
             if (file.textContentByPage[pageNum].toLowerCase().includes(keyword)) {
                 results.push({
