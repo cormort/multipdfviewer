@@ -1,62 +1,185 @@
 :root {
-    --toolbar-width: 280px;
-    --navbar-height: 48px;
-    --primary-color: #007bff;
-    --border-color: #dee2e6;
-    --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --primary-bg: #f0f2f5;
+    --secondary-bg: #ffffff;
+    --toolbar-bg: #fafafa;
+    --border-color: #d9d9d9;
+    --text-color: #333;
+    --primary-color: #1890ff;
+    --placeholder-text: #999;
 }
-* { box-sizing: border-box; }
+
 html, body {
-    height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: var(--font-family);
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--primary-bg);
+    color: var(--text-color);
 }
-#app-container {
+
+.app-container {
     display: flex;
+    height: 100%;
+}
+
+/* 左側工具列 */
+.toolbar {
+    width: 300px;
+    min-width: 200px;
+    max-width: 600px;
+    background-color: var(--toolbar-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.toolbar-section {
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px;
+}
+
+.toolbar-section:last-child {
+    border-bottom: none;
+}
+
+h3 {
+    margin-top: 0;
+    font-size: 16px;
+    color: #555;
+}
+
+.btn {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-bg);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+#doc-selector, #search-input {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+#search-results {
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.search-result-item {
+    padding: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.search-result-item:hover, .search-result-item.active {
+    background-color: #e6f7ff;
+}
+
+/* 分隔線 */
+.resizer {
+    width: 5px;
+    cursor: col-resize;
+    background-color: var(--primary-bg);
+    flex-shrink: 0;
+}
+.resizer:hover {
+    background-color: #d1e3ff;
+}
+
+/* 右側內容區 */
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
     height: 100vh;
 }
-#toolbar {
-    width: var(--toolbar-width);
-    flex-shrink: 0;
-    height: 100%;
-    overflow-y: auto;
-    background-color: #f8f9fa;
-    border-right: 1px solid var(--border-color);
-}
-.toolbar-header { padding: 10px 15px; border-bottom: 1px solid var(--border-color); }
-.toolbar-header h2 { margin: 0; font-size: 1.25rem; }
-.toolbar-content { padding: 0; }
-.toolbar-section { padding: 15px; border-bottom: 1px solid var(--border-color); }
-.toolbar-section h4 { margin-top: 0; margin-bottom: 10px; }
-.toolbar-item { margin-bottom: 10px; }
-.search-input-group { display: flex; }
-#resizer {
-    width: 5px; background-color: #ccc; cursor: col-resize; flex-shrink: 0;
-}
-#resizer:hover { background-color: var(--primary-color); }
-#main-content {
-    flex-grow: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden;
-}
-#top-navbar {
-    height: var(--navbar-height);
-    padding: 0 10px;
+
+.navigation-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    padding: 8px;
+    background-color: var(--secondary-bg);
     border-bottom: 1px solid var(--border-color);
-    background-color: #fff;
     flex-shrink: 0;
 }
-#pdf-view-wrapper {
-    flex-grow: 1;
-    overflow: hidden;
-    background-color: #525659;
+
+.navigation-bar button, .navigation-bar input, .navigation-bar span {
+    margin: 0 5px;
 }
-#pdf-embed { width: 100%; height: 100%; border: none; }
-.nav-group { display: flex; align-items: center; gap: 5px; }
-.page-input { width: 60px; text-align: center; }
-.btn, .nav-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: #fff; cursor: pointer; }
-.btn:hover, .nav-btn:hover { background-color: #f1f1f1; }
-.btn-primary { background-color: var(--primary-color); color: #fff; border-color: var(--primary-color); }
-.btn-danger { background-color: #dc3545; color: #fff; border-color: #dc3545; }
-.form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; }
-.placeholder-text { padding: 10px; text-align: center; color: #666; }
-#feedback-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.75); color: white; padding: 10px 20px; border-radius: 20px; z-index: 2000; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+
+#page-num-input {
+    width: 50px;
+    text-align: center;
+}
+
+.pdf-viewer {
+    flex-grow: 1;
+    background-color: #525659; /* PDF.js viewer background color */
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.placeholder-text {
+    color: var(--placeholder-text);
+}
+
+#pdf-embed {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* 讀取中指示 */
+.loading {
+    margin-top: auto;
+    text-align: center;
+    padding: 10px;
+    color: #777;
+}
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 輔助 class */
+.hidden {
+    display: none !important;
+}
+body.resizing {
+    cursor: col-resize;
+    user-select: none;
+}
